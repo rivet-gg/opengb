@@ -1,0 +1,21 @@
+{
+	"name": "@ogs/firends",
+	"targets": {
+		"dev": {
+			"dependsOn": [
+				"dev:module"
+			],
+			"command": "echo 'hello'"
+		},
+		"dev:module": {
+			"cache": true,
+			"inputs": [
+				"{projectRoot}/module.yaml"
+			],
+			"outputs": [
+				"{workspaceRoot}/dist/runtime_config.ts"
+			],
+			"command": "deno run --check --allow-net --allow-read --allow-env --allow-run --allow-write engine/build/index.ts"
+		}
+	}
+}

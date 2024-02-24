@@ -3,9 +3,9 @@ authors:
   - NathanFlurry
 scripts:
   send_request:
-    public: true
+    public: false
   accept_request:
-    public: true
+    public: false
   decline_request:
     public: true
   remove_friend:

@@ -1,0 +1,6 @@
+{
+	"$schema": "./node_modules/nx/schemas/nx-schema.json",
+	"affected": {
+		"defaultBase": "main"
+	}
+}

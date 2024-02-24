@@ -50,4 +50,9 @@ Temporary Items
 
 # End of https://www.toptal.com/developers/gitignore/api/deno,macos
 
+# Turbo
+.turbo
 
+
+
+.nx/cache

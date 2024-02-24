@@ -1329,6 +1329,11 @@
       "npm:glob@^10.3.10",
       "npm:pg@^8.11.3",
       "npm:typescript-json-schema@^0.62.0"
-    ]
+    ],
+    "packageJson": {
+      "dependencies": [
+        "npm:nx@18.0.4"
+      ]
+    }
   }
 }
