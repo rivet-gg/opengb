@@ -200,4 +200,17 @@ export async function planProjectBuild(
 	// TODO: SDKs
 
 	await waitForBuildPromises(buildState);
+
+	buildStep(buildState, {
+		name: "Check",
+		description: "_gen/entrypoint.ts",
+		async build() {
+			const checkOutput = await new Deno.Command("deno", {
+				args: ["check", "--quiet", resolve(project.path, "_gen", "entrypoint.ts")],
+			}).output();
+			if (!checkOutput.success) {
+				throw new Error(`Check failed:\n${new TextDecoder().decode(checkOutput.stderr)}`);
+			}
+		},
+	});
 }

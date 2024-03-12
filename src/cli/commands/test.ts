@@ -28,6 +28,9 @@ export const testCommand = new Command<GlobalOpts>()
 							runtime: Runtime.Deno,
 							format: Format.Native,
 							dbDriver: DbDriver.NodePostgres,
+
+							// This gets ran on `deno test`
+							skipDenoCheck: true,
 						});
 					}
 

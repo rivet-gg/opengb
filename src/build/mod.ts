@@ -35,6 +35,7 @@ export interface BuildOpts {
 	format: Format;
 	runtime: Runtime;
 	dbDriver: DbDriver;
+	skipDenoCheck: boolean;
 }
 
 export async function build(project: Project, opts: BuildOpts) {

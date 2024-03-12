@@ -101,6 +101,7 @@ export const buildCommand = new Command<GlobalOpts>()
 					format: opts.outputFormat!,
 					runtime: opts.runtime,
 					dbDriver: opts.dbDriver!,
+					skipDenoCheck: false,
 				});
 			},
 		});
