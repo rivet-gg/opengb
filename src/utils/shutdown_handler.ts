@@ -1,3 +1,5 @@
+import { verbose } from "../term/status.ts";
+
 export type ShutdownFn = () => Promise<void>;
 
 interface ShutdownHandler {
@@ -19,5 +21,6 @@ export function addShutdownHandler(fn: ShutdownFn) {
  * Runs all shutdown functions.
  */
 export async function runShutdown() {
+	verbose("Running shutdown handlers");
 	await Promise.all(SHUTDOWN_HANDLER.fns.map((fn) => fn()));
 }

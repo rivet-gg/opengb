@@ -5,7 +5,8 @@
 import { copy, emptyDir, resolve } from "../deps.ts";
 import { buildPrismaPackage } from "./build_prisma_esm.ts";
 import { Module, Project } from "../project/mod.ts";
-import { forEachPrismaSchema, runPrismaCommand } from "./mod.ts";
+import { forEachDatabase } from "./mod.ts";
+import { runPrismaCommand } from "./prisma.ts";
 import { Runtime } from "../build/mod.ts";
 
 export async function generateClient(
@@ -14,22 +15,21 @@ export async function generateClient(
 	runtime: Runtime,
 	signal?: AbortSignal,
 ) {
-	await forEachPrismaSchema(
+	await forEachDatabase(
 		project,
 		modules,
-		async ({ module, databaseUrl, generatedClientDir }) => {
-			// Clear generated dir
-			await emptyDir(generatedClientDir);
-
-			// Generate client
-			await runPrismaCommand(project, {
+		async ({ module, databaseUrl }) => {
+			const dbDir = await runPrismaCommand(project, module, {
 				args: ["generate"],
 				env: {
 					DATABASE_URL: databaseUrl,
 					PRISMA_CLIENT_FORCE_WASM: "true",
 				},
+				interactive: false,
+				output: false,
 				signal,
 			});
+			const clientDir = resolve(dbDir, "client");
 
 			// Specify the path to the library & binary types
 			for (
@@ -40,7 +40,7 @@ export async function generateClient(
 					"edge.d.ts",
 				]
 			) {
-				const filePath = resolve(generatedClientDir, filename);
+				const filePath = resolve(clientDir, filename);
 				let content = await Deno.readTextFile(filePath);
 				const replaceLineA = `import * as runtime from './runtime/library.js'`;
 				const replaceLineB = `import * as runtime from './runtime/binary.js'`;
@@ -53,24 +53,21 @@ export async function generateClient(
 						replaceLineB,
 						`// @deno-types="./runtime/binary.d.ts"\n${replaceLineB}`,
 					)
-					.replace(/(import|export)\s+(.*)\s+from '.\/default'/g, `$1 type $2 from './default.d.ts'`);
+					.replace(/(import|export)\s+(.*)\s+from '.\/(default|index)'/g, `$1 type $2 from './$3.d.ts'`);
 				await Deno.writeTextFile(filePath, content);
 			}
 
 			// Compile the ESM library
 			await buildPrismaPackage(
-				generatedClientDir,
-				resolve(generatedClientDir, "esm.js"),
+				clientDir,
+				resolve(clientDir, "esm.js"),
 				runtime,
 			);
 
 			// Copy to module
 			const dstDir = resolve(module.path, "_gen", "prisma");
 			await emptyDir(dstDir);
-			await copy(generatedClientDir, dstDir, { overwrite: true });
-
-			// HACK: Remove the generated client dir to work around a bug in the Prisma CLI
-			await emptyDir(generatedClientDir);
+			await copy(clientDir, dstDir, { overwrite: true });
 		},
 	);
 }

@@ -185,6 +185,7 @@ export function shutdownPool(pool: WorkerPool<unknown, unknown>) {
 }
 
 export function cleanupAllPools() {
+	verbose("Cleaning up all worker pools");
 	GLOBAL_STATE.shutdown = true;
 	for (const pool of GLOBAL_STATE.allPools) {
 		shutdownPool(pool);

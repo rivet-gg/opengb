@@ -1,7 +1,5 @@
 import { BuildState, buildStep, waitForBuildPromises } from "../../build_state/mod.ts";
 import { denoPlugins, esbuild, exists, resolve } from "../../deps.ts";
-import { migrateDeploy } from "../../migrate/deploy.ts";
-import { migrateDev } from "../../migrate/dev.ts";
 import { Project } from "../../project/mod.ts";
 import { BuildOpts, Format, Runtime } from "../mod.ts";
 import { generateClient } from "../../migrate/generate.ts";
@@ -21,17 +19,13 @@ export async function planProjectBuild(
 ) {
 	const signal = buildState.signal;
 
-	// TODO: This does not reuse the Prisma dir or the database connection, so is extra slow on the first run.
-	// Figure out how to make this use one `migrateDev` command and pass in any modified modules For now,
-	// these need to be migrated individually because `prisma migrate dev` is an interactive command. Also,
-	// making a database change and waiting for all other databases to re-apply will take a long time.
+	// Generate Prisma clients
 	for (const module of project.modules.values()) {
 		if (module.db) {
 			buildStep(buildState, {
-				name: "Migrate",
-				description: `modules/${module.name}/db/schema.prisma`,
+				name: "Generate",
+				description: `modules/${module.name}/_gen/prisma/`,
 				module,
-				// TODO: Also watch migrations folder in case a migration is created/destroyed
 				condition: {
 					files: [resolve(module.path, "db", "schema.prisma")],
 					expressions: {
@@ -39,24 +33,10 @@ export async function planProjectBuild(
 					},
 				},
 				async build({ signal }) {
-					if (module.registry.isExternal || Deno.env.get("CI") === "true") {
-						// Do not alter migrations, only deploy them
-						await migrateDeploy(project, [module], signal);
-					} else {
-						// Update migrations
-						await migrateDev(project, [module], {
-							createOnly: false,
-							signal,
-						});
-					}
-
 					// Generate client
 					await generateClient(project, [module], opts.runtime, signal);
 				},
 			});
-
-			// Run one migration at a time since Prisma is interactive
-			await waitForBuildPromises(buildState);
 		}
 	}
 
