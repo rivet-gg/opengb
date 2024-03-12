@@ -28,17 +28,20 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 	}
 
 	let project = initProject;
-	let fnAbortController: AbortController | null = null;
+	let loadProjectSuccess = true;
 	while (true) {
 		// Run action
-		fnAbortController = new AbortController();
-		abortable(
-			wrapWatchFn(project, opts, fnAbortController.signal),
-			fnAbortController.signal,
-		)
-			.catch((err) => {
-				if (err.name != "AbortError") throw err;
-			});
+		let fnAbortController: AbortController | undefined;
+		if (loadProjectSuccess) {
+			fnAbortController = new AbortController();
+			abortable(
+				wrapWatchFn(project, opts, fnAbortController.signal),
+				fnAbortController.signal,
+			)
+				.catch((err) => {
+					if (err.name != "AbortError") throw err;
+				});
+		}
 
 		// Wait for change that we care about
 		let foundEvent = false;
@@ -64,8 +67,17 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 			if (err.name != "AbortError") throw err;
 		}
 
-		// Reload project
-		project = await loadProject({ path: project.path });
+		// Try to reload project
+		//
+		// If this fails, it means the project is in a bad state. This will skip the next
+		// action and wait for the next change.
+		try {
+			project = await loadProject({ path: project.path });
+			loadProjectSuccess = true;
+		} catch (err) {
+			printError(err);
+			loadProjectSuccess = false;
+		}
 	}
 }
 
