@@ -1,6 +1,6 @@
 import { Project } from "../project/project.ts";
 import { ensurePostgresRunning } from "../utils/postgres_daemon.ts";
-import { createBuildState, writeBuildState, waitForBuildPromises } from "../build_state/mod.ts";
+import { createBuildState, waitForBuildPromises, writeBuildState } from "../build_state/mod.ts";
 import { success } from "../term/status.ts";
 import { planProjectBuild } from "./plan/project.ts";
 

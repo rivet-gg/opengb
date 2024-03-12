@@ -5,6 +5,7 @@ import { loadProject } from "../project/project.ts";
 import { info, verbose } from "../term/status.ts";
 import { InternalError } from "../error/mod.ts";
 import { printError } from "../error/mod.ts";
+import { colors } from "../term/deps.ts";
 
 export interface WatchOpts {
 	/**
@@ -30,6 +31,19 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 	let project = initProject;
 	let loadProjectSuccess = true;
 	while (true) {
+		const sttyOutput = await new Deno.Command("stty", {
+			args: ["sane"],
+			stdin: "inherit",
+			stdout: "inherit",
+			stderr: "inherit",
+		}).output();
+		if (!sttyOutput.success) {
+			console.warn("Failed to run `stty sane`. This may cause terminal issues.");
+		}
+
+		const { columns } = Deno.consoleSize();
+		console.log(`\n${colors.dim("─".repeat(columns))}\n`);
+
 		// Run action
 		let fnAbortController: AbortController | undefined;
 		if (loadProjectSuccess) {
