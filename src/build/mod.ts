@@ -1,6 +1,6 @@
 import { Project } from "../project/project.ts";
 import { ensurePostgresRunning } from "../utils/postgres_daemon.ts";
-import { createBuildState, waitForBuildPromises, writeBuildState } from "../build_state/mod.ts";
+import { createBuildState, waitForBuildPromises } from "../build_state/mod.ts";
 import { success } from "../term/status.ts";
 import { planProjectBuild } from "./plan/project.ts";
 
@@ -55,12 +55,10 @@ export async function build(project: Project, opts: BuildOpts) {
 
 	const buildState = await createBuildState(project, opts.signal);
 
-	// Wait for any remaining build steps
-	await waitForBuildPromises(buildState);
-
 	await planProjectBuild(buildState, project, opts);
 
-	await writeBuildState(buildState);
+	// Wait for any remaining build steps
+	await waitForBuildPromises(buildState);
 
 	success("Success");
 }

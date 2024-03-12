@@ -179,4 +179,9 @@ export async function waitForBuildPromises(buildState: BuildState): Promise<void
 			throw new CombinedError(errorResponses);
 		}
 	}
+
+	buildState.signal.throwIfAborted();
+
+	// Write cache
+	await writeBuildState(buildState);
 }

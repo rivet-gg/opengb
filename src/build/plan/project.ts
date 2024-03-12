@@ -32,7 +32,7 @@ export async function planProjectBuild(
 				condition: {
 					files: [resolve(module.path, "db", "schema.prisma")],
 					expressions: {
-						"Runtime": opts.runtime,
+						runtime: opts.runtime,
 					},
 				},
 				async build({ signal }) {

@@ -24,7 +24,7 @@ export async function planScriptBuild(
 				strictSchemas: opts.strictSchemas,
 
 				// If a script is added, removed, or the config is changed
-				"module.scripts": module.scripts,
+				moduleScripts: module.scripts,
 			},
 		},
 		delayedStart: true,
