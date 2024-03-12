@@ -243,7 +243,12 @@ export async function planProjectBuild(
 					files: [resolve(module.path, "db", "schema.prisma"), ...migrations],
 				},
 				async build({ signal }) {
-					await migrateDev(project, [module], { createOnly: false, signal });
+					await migrateDev(project, [module], {
+						createOnly: false,
+						// HACK: Disable lock since running this command in watch does not clear the lock correctly
+						disableSchemaLock: true,
+						signal,
+					});
 				},
 			});
 

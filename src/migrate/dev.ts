@@ -10,6 +10,13 @@ import { runPrismaCommand } from "./prisma.ts";
 
 export interface MigrateDevOpts {
 	createOnly: boolean;
+
+	/**
+	 * If true, don't lock the schema during migration. Should be avoided
+	 * whenever possible.
+	 */
+	disableSchemaLock?: boolean;
+
 	signal?: AbortSignal;
 }
 
@@ -36,6 +43,7 @@ export async function migrateDev(
 				],
 				env: {
 					DATABASE_URL: databaseUrl,
+					PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: opts.disableSchemaLock ? "1" : "",
 				},
 				interactive: true,
 				output: true,
