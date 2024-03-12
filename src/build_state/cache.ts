@@ -111,26 +111,28 @@ export async function compareFileHash(
 		}
 
 		// Compre hash
+		let fileChanged = false;
 		const oldHash = cache.persist.fileHashes[path];
 		const newHash = await hashFile(cache, path);
 		if (!oldHash) {
-			hasChanged = true;
+			fileChanged = true;
 			verbose("Created", path);
 		} else if ("missing" in oldHash && "missing" in newHash) {
 			// Do nothing
 		} else if ("hash" in oldHash && "hash" in newHash) {
 			if (oldHash.hash != newHash.hash) {
-				hasChanged = true;
+				fileChanged = true;
 				verbose("Edited", path);
 			}
 		} else {
-			hasChanged = true;
+			fileChanged = true;
 			if ("missing" in oldHash) verbose("Created", path);
 			else verbose("Removed", path);
 		}
+		if (fileChanged) hasChanged = true;
 
 		// Cache diff so we don't have to rehash the file
-		cache.fileDiffs.set(path, hasChanged);
+		cache.fileDiffs.set(path, fileChanged);
 	}
 
 	return hasChanged;
@@ -180,16 +182,18 @@ export async function compareExprHash(
 		}
 
 		// Compare hash
+		let exprChanged = false;
 		const oldHash = cache.persist.exprHashes[name];
 		const newHash = await hashExpr(cache, name, value);
 		if (newHash != oldHash) {
-			hasChanged = true;
+			exprChanged = true;
 
 			verbose("Changed", name);
 		}
+		if (exprChanged) hasChanged = true;
 
 		// Cache diff so we don't have to rehash the expr
-		cache.exprDiffs.set(name, hasChanged);
+		cache.exprDiffs.set(name, exprChanged);
 	}
 
 	return hasChanged;
