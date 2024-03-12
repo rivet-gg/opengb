@@ -29,10 +29,12 @@ export const testCommand = new Command<GlobalOpts>()
 							runtime: Runtime.Deno,
 							format: Format.Native,
 							dbDriver: DbDriver.NodePostgres,
-							signal,
+							autoMigrate: true,
 
 							// This gets ran on `deno test`
 							skipDenoCheck: true,
+
+							signal,
 						});
 					}
 

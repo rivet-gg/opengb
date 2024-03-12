@@ -33,7 +33,7 @@ export async function createBuildState(project: Project, signal?: AbortSignal): 
 	return buildState;
 }
 
-export async function shutdownBuildState(buildState: BuildState) {
+export async function writeBuildState(buildState: BuildState) {
 	buildState.signal.throwIfAborted();
 
 	await writeCache(buildState.project, buildState.cache);

@@ -11,6 +11,9 @@ import { generateEntrypoint } from "../entrypoint.ts";
 import { generateOpenApi } from "../openapi.ts";
 import { InternalError } from "../../error/mod.ts";
 import { UserError } from "../../error/mod.ts";
+import { glob } from "../../project/deps.ts";
+import { migrateDeploy } from "../../migrate/deploy.ts";
+import { migrateDev } from "../../migrate/dev.ts";
 
 export async function planProjectBuild(
 	buildState: BuildState,
@@ -209,4 +212,42 @@ export async function planProjectBuild(
 	});
 
 	await waitForBuildPromises(buildState);
+
+	if (opts.autoMigrate) {
+		// Deploy external migrations in parallel
+		for (const module of project.modules.values()) {
+			if (!module.db || !module.registry.isExternal) continue;
+
+			const migrations = await glob.glob(resolve(module.path, "db", "migrations", "*", "*.sql"));
+			buildStep(buildState, {
+				name: "Database Deploy",
+				condition: {
+					files: migrations,
+				},
+				async build({ signal }) {
+					await migrateDeploy(project, [module], signal);
+				},
+			});
+		}
+
+		await waitForBuildPromises(buildState);
+
+		// Deploy dev migrations one at a time
+		for (const module of project.modules.values()) {
+			if (!module.db || module.registry.isExternal) continue;
+
+			const migrations = await glob.glob(resolve(module.path, "db", "migrations", "*", "*.sql"));
+			buildStep(buildState, {
+				name: "Database Dev",
+				condition: {
+					files: [resolve(module.path, "db", "schema.prisma"), ...migrations],
+				},
+				async build({ signal }) {
+					await migrateDev(project, [module], { createOnly: false, signal });
+				},
+			});
+
+			await waitForBuildPromises(buildState);
+		}
+	}
 }

@@ -61,6 +61,11 @@ export const buildCommand = new Command<GlobalOpts>()
 			},
 		},
 	)
+	.option(
+		"--auto-migrate",
+		"Automatically migrate the database",
+		{ default: false },
+	)
 	.action(async (opts) => {
 		const project = await initProject(opts);
 
@@ -96,12 +101,14 @@ export const buildCommand = new Command<GlobalOpts>()
 
 		await watch(project, {
 			disableWatch: !opts.watch,
-			async fn(project: Project) {
+			async fn(project: Project, signal: AbortSignal) {
 				await build(project, {
 					format: opts.outputFormat!,
 					runtime: opts.runtime,
 					dbDriver: opts.dbDriver!,
+					autoMigrate: opts.autoMigrate,
 					skipDenoCheck: false,
+					signal,
 				});
 			},
 		});

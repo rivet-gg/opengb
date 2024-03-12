@@ -1,6 +1,6 @@
 import { Project } from "../project/project.ts";
 import { ensurePostgresRunning } from "../utils/postgres_daemon.ts";
-import { createBuildState, shutdownBuildState } from "../build_state/mod.ts";
+import { createBuildState, writeBuildState, waitForBuildPromises } from "../build_state/mod.ts";
 import { success } from "../term/status.ts";
 import { planProjectBuild } from "./plan/project.ts";
 
@@ -35,8 +35,9 @@ export interface BuildOpts {
 	format: Format;
 	runtime: Runtime;
 	dbDriver: DbDriver;
-	signal?: AbortSignal;
+	autoMigrate: boolean;
 	skipDenoCheck: boolean;
+	signal?: AbortSignal;
 }
 
 export async function build(project: Project, opts: BuildOpts) {
@@ -47,9 +48,12 @@ export async function build(project: Project, opts: BuildOpts) {
 
 	const buildState = await createBuildState(project, opts.signal);
 
+	// Wait for any remaining build steps
+	await waitForBuildPromises(buildState);
+
 	await planProjectBuild(buildState, project, opts);
 
-	await shutdownBuildState(buildState);
+	await writeBuildState(buildState);
 
 	success("Success");
 }

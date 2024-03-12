@@ -17,7 +17,6 @@ export async function migrateDev(
 	project: Project,
 	modules: Module[],
 	opts: MigrateDevOpts,
-	signal?: AbortSignal,
 ) {
 	assert(
 		modules.every((m) => !m.registry.isExternal),
@@ -40,7 +39,7 @@ export async function migrateDev(
 				},
 				interactive: true,
 				output: true,
-				signal,
+				signal: opts.signal,
 			});
 
 			// Copy back migrations dir
