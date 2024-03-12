@@ -4,8 +4,8 @@ import { GlobalOpts, initProject } from "../common.ts";
 import { build, DbDriver, Format, Runtime } from "../../build/mod.ts";
 import { ensurePostgresRunning } from "../../utils/postgres_daemon.ts";
 
-export const startCommand = new Command<GlobalOpts>()
-	.description("Start the project")
+export const devCommand = new Command<GlobalOpts>()
+	.description("Start the development server")
 	.option("--no-build", "Don't build source files")
 	.option("--no-check", "Don't check source files before running")
 	.option("--unstable-watch", "Automatically restart server on changes. This does not support all features yet.")

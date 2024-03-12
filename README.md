@@ -26,11 +26,13 @@ deno install --allow-net --allow-read --allow-env --allow-run --allow-write --na
 
 ## Usage
 
-**Start OpenGB server**
+**Start development server**
 
 ```
-opengb dev start
+opengb dev
 ```
+
+This will automatically restart when files change.
 
 > **Tip**
 >
@@ -41,6 +43,18 @@ default to `postgres://postgres:password@localhost:5432/postgres`
 
 ```
 opengb test
+```
+
+To automatically rerun tests when files change, run:
+
+```
+opengb test --watch
+```
+
+To test a specific file:
+
+```
+opengb test foo
 ```
 
 **Creating modules & scripts**

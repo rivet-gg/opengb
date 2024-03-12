@@ -1,5 +1,5 @@
 import { Command, CompletionsCommand, HelpCommand, ValidationError } from "./deps.ts";
-import { startCommand } from "./commands/start.ts";
+import { devCommand } from "./commands/dev.ts";
 import { buildCommand } from "./commands/build.ts";
 import { dbCommand } from "./commands/db.ts";
 import { testCommand } from "./commands/test.ts";
@@ -16,8 +16,8 @@ const command = new Command();
 command.action(() => command.showHelp())
 	.globalOption("-p, --path <path>", "Path to project root")
 	.command("init", initCommand)
+	.command("dev", devCommand)
 	.command("create", createCommand)
-	.command("start", startCommand)
 	.command("test", testCommand)
 	.command("database, db", dbCommand)
 	.command("sdk", sdkCommand)
