@@ -53,7 +53,7 @@ export async function generateClient(
 						replaceLineB,
 						`// @deno-types="./runtime/binary.d.ts"\n${replaceLineB}`,
 					)
-					.replace(/from '.\/default'/g, `from './default.d.ts'`);
+					.replace(/(import|export)\s+(.*)\s+from '.\/default'/g, `$1 type $2 from './default.d.ts'`);
 				await Deno.writeTextFile(filePath, content);
 			}
 

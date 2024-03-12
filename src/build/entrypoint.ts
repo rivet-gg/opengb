@@ -60,7 +60,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			${autoGenHeader()}
 			import { Runtime } from "${runtimeModPath}";
 			import { camelToSnake } from "${registryMapPath};
-			import { Registry, RegistryCamel } from "./registry.d.ts";
+			import type { Registry, RegistryCamel } from "./registry.d.ts";
 			import config from "./runtime_config.ts";
 
 			async function main() {
@@ -78,7 +78,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			${autoGenHeader()}
 			import { Runtime } from "${runtimeModPath}";
 			import { camelToSnake } from "${registryMapPath}";
-			import { Registry, RegistryCamel } from "./registry.d.ts";
+			import type { Registry, RegistryCamel } from "./registry.d.ts";
 			import config from "./runtime_config.ts";
 			import { serverHandler } from "${serverTsPath}";
 

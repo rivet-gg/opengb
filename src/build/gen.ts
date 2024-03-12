@@ -1,5 +1,5 @@
 import { dedent } from "./deps.ts";
-import { dirname, resolve } from "../deps.ts";
+import { dirname, relative, resolve } from "../deps.ts";
 import { Module, moduleGenPath, Project, Script, scriptGenPath, testGenPath, typeGenPath } from "../project/mod.ts";
 import { genRuntimeModPath } from "../project/project.ts";
 import { autoGenHeader } from "./misc.ts";
@@ -11,7 +11,8 @@ export async function compileModuleHelper(
 	project: Project,
 	module: Module,
 ) {
-	const runtimePath = genRuntimeModPath(project);
+	const helperPath = moduleGenPath(project, module);
+	const runtimePath = relative(dirname(helperPath), genRuntimeModPath(project));
 
 	// Generate source
 	let dbImports = "";
@@ -27,7 +28,7 @@ export async function compileModuleHelper(
 
 	const source = dedent`
 		import { ModuleContext as ModuleContextInner } from "${runtimePath}";
-		import { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "./registry.d.ts";
+		import type { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "./registry.d.ts";
 		${dbImports}
 		${userConfigImport}
 		
@@ -49,7 +50,6 @@ export async function compileModuleHelper(
 	`;
 
 	// Write source
-	const helperPath = moduleGenPath(project, module);
 	await Deno.mkdir(dirname(helperPath), { recursive: true });
 	await Deno.writeTextFile(helperPath, source);
 }
@@ -58,8 +58,10 @@ export async function compileTestHelper(
 	project: Project,
 	module: Module,
 ) {
-	const runtimePath = genRuntimeModPath(project);
-	const registryMapPath = genRegistryMapPath(project);
+	const helperPath = testGenPath(project, module);
+	const runtimePath = relative(dirname(helperPath), genRuntimeModPath(project));
+	const registryMapPath = relative(dirname(helperPath), genRegistryMapPath(project));
+	const runtimeConfigPath = relative(dirname(helperPath), `${project.path}/_gen/runtime_config.ts`);
 
 	const { userConfigImport, userConfigType } = await getUserConfigImport(module, "..");
 
@@ -67,9 +69,9 @@ export async function compileTestHelper(
 		${autoGenHeader()}
 		import * as module from "./mod.ts";
 		import { Runtime, TestContext as TestContextInner } from "${runtimePath}";
-		import { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "./registry.d.ts";
+		import type { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "./registry.d.ts";
 		import { camelToSnake } from "${registryMapPath}";
-		import config from "${project.path}/_gen/runtime_config.ts";
+		import config from "${runtimeConfigPath}";
 		${userConfigImport}
 		
 		export * from "./mod.ts";
@@ -89,7 +91,6 @@ export async function compileTestHelper(
 	`;
 
 	// Write source
-	const helperPath = testGenPath(project, module);
 	await Deno.mkdir(dirname(helperPath), { recursive: true });
 	await Deno.writeTextFile(helperPath, source);
 }
@@ -99,7 +100,8 @@ export async function compileScriptHelper(
 	module: Module,
 	script: Script,
 ) {
-	const runtimePath = genRuntimeModPath(project);
+	const helperPath = scriptGenPath(project, module, script);
+	const runtimePath = relative(dirname(helperPath), genRuntimeModPath(project));
 
 	const { userConfigImport, userConfigType } = await getUserConfigImport(module, "../..");
 
@@ -107,7 +109,7 @@ export async function compileScriptHelper(
 		${autoGenHeader()}
 		import * as module from "../mod.ts";
 		import { ScriptContext as ScriptContextInner } from "${runtimePath}";
-		import { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "../registry.d.ts";
+		import type { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "../registry.d.ts";
 		${userConfigImport}
 
 		export * from "../mod.ts";
@@ -121,7 +123,6 @@ export async function compileScriptHelper(
 	`;
 
 	// Write source
-	const helperPath = scriptGenPath(project, module, script);
 	await Deno.mkdir(dirname(helperPath), { recursive: true });
 	await Deno.writeTextFile(helperPath, source);
 }
@@ -180,89 +181,48 @@ export async function compileTypeHelpers(project: Project) {
 					request: ${requestTypeName};
 					response: ${responseTypeName};
 				};
-			` + "\n";
+			`;
 			scriptCamelInterfaceSource += dedent`
 				${scriptNameCamel}: {
 					request: ${requestTypeName};
 					response: ${responseTypeName};
 				};
-			` + "\n";
+			`;
 
 			moduleRegistryMap += `${scriptNameCamel}: ["${moduleNameSnake}", "${scriptNameSnake}"],\n`;
 		}
 
 		const moduleInterfaceNameSnake = `${moduleNamePascal}_Module`;
 		const moduleInterfaceNameCamel = `${moduleNamePascal}_ModuleCamel`;
-		const headerTypesSource = dedent`
+
+		moduleTypesSource += dedent`
 			//
 			// Types for ${module.name}
 			//
+
+			${scriptImportsSource}
+			
+			interface ${moduleInterfaceNameSnake} {
+				${scriptSnakeInterfaceSource}
+			}
+			interface ${moduleInterfaceNameCamel} {
+				${scriptCamelInterfaceSource}
+			}
 		`;
 
-		scriptSnakeInterfaceSource = scriptSnakeInterfaceSource
-			.split("\n")
-			.filter((line) => line.trim() !== "")
-			.map((line) => `\t${line}`)
-			.join("\n");
+		moduleSnakeRegistrySource += `${moduleNameSnake}: ${moduleInterfaceNameSnake};`;
+		moduleCamelRegistrySource += `${moduleNameCamel}: ${moduleInterfaceNameCamel};`;
 
-		scriptCamelInterfaceSource = scriptCamelInterfaceSource
-			.split("\n")
-			.filter((line) => line.trim() !== "")
-			.map((line) => `\t${line}`)
-			.join("\n");
-
-		const interfaceSource = [
-			`interface ${moduleInterfaceNameSnake} {`,
-			scriptSnakeInterfaceSource,
-			"}",
-			`interface ${moduleInterfaceNameCamel} {`,
-			scriptCamelInterfaceSource,
-			"}",
-		].join("\n");
-
-		moduleTypesSource += headerTypesSource + "\n\n";
-		moduleTypesSource += scriptImportsSource + "\n\n";
-		moduleTypesSource += interfaceSource + "\n\n\n\n";
-
-		moduleSnakeRegistrySource += dedent`
-			${moduleNameSnake}: ${moduleInterfaceNameSnake};
-		` + "\n";
-		moduleCamelRegistrySource += dedent`
-			${moduleNameCamel}: ${moduleInterfaceNameCamel};
-		` + "\n";
-
-		moduleRegistryMap = moduleRegistryMap
-			.split("\n")
-			.filter((line) => line.trim() !== "")
-			.map((line) => `\t${line}`)
-			.join("\n");
-
-		registryMapSource += [
-			`${moduleNameCamel}: {`,
-			moduleRegistryMap,
-			"},",
-		].join("\n") + "\n";
+		registryMapSource += dedent`
+			${moduleNameCamel}: {
+				${moduleRegistryMap}
+			},
+		`;
 	}
 
-	moduleSnakeRegistrySource = moduleSnakeRegistrySource
-		.split("\n")
-		.filter((line) => line.trim() !== "")
-		.map((line) => `\t${line.trim()}`)
-		.join("\n");
+	const typedefSource = dedent`
+		${autoGenHeader()}
 
-	moduleCamelRegistrySource = moduleCamelRegistrySource
-		.split("\n")
-		.filter((line) => line.trim() !== "")
-		.map((line) => `\t${line.trim()}`)
-		.join("\n");
-
-	registryMapSource = registryMapSource
-		.split("\n")
-		.filter((line) => line.trim() !== "")
-		.map((line) => `\t${line}`)
-		.join("\n");
-
-	const utilityTypeSource = autoGenHeader() + "\n\n" + dedent`
 		export type RequestOf<T> = T extends { request: any } ? T["request"] : never;
 		export type ResponseOf<T> = T extends { response: any } ? T["response"] : never;
 
@@ -272,28 +232,25 @@ export async function compileTypeHelpers(project: Project) {
 			script: S,
 			req: RequestOf<Registry[M][S]>,
 		) => Promise<ResponseOf<Registry[M][S]>>;
+
+		interface Registry {
+			${moduleSnakeRegistrySource}
+		}
+
+		interface RegistryCamel {
+			${moduleCamelRegistrySource}
+		}
+
+		${moduleTypesSource}
 	`;
-	const registryTypesSource = [
-		"interface Registry {",
-		moduleSnakeRegistrySource,
-		"}",
-		"interface RegistryCamel {",
-		moduleCamelRegistrySource,
-		"}",
-	].join("\n");
 
-	const typedefSource = [
-		utilityTypeSource,
-		registryTypesSource,
-		moduleTypesSource,
-	].join("\n\n");
+	const camelLookupSource = dedent`
+		${autoGenHeader()}
 
-	const camelLookupSource = [
-		autoGenHeader(),
-		"export const camelToSnake = {",
-		registryMapSource,
-		"} as const;",
-	].join("\n");
+		export const camelToSnake = {
+			${registryMapSource}
+		} as const;
+	`;
 
 	await Deno.mkdir(dirname(typedefPath), { recursive: true });
 	await Deno.writeTextFile(typedefPath, typedefSource);
@@ -304,10 +261,14 @@ export async function compileModuleTypeHelper(
 	project: Project,
 	module: Module,
 ) {
-	const typedefPath = resolve(
-		project.path,
-		"_gen",
-		"registry.d.ts",
+	const helperPath = typeGenPath(project, module);
+	const typedefPath = relative(
+		dirname(helperPath),
+		resolve(
+			project.path,
+			"_gen",
+			"registry.d.ts",
+		),
 	);
 
 	const moduleNameSnake = module.name;
@@ -323,7 +284,7 @@ export async function compileModuleTypeHelper(
 
 	const source = dedent`
 		${autoGenHeader()}
-		import { Registry as RegistryFull, RegistryCamel as RegistryFullCamel } from "${typedefPath}";
+		import type { Registry as RegistryFull, RegistryCamel as RegistryFullCamel } from "${typedefPath}";
 		export interface Registry {
 			${moduleNameSnake}: RegistryFull["${moduleNameSnake}"];
 			${moduleDependenciesSnake}
@@ -335,7 +296,6 @@ export async function compileModuleTypeHelper(
 		}
 	`;
 
-	const helperPath = typeGenPath(project, module);
 	await Deno.mkdir(dirname(helperPath), { recursive: true });
 	await Deno.writeTextFile(helperPath, source);
 }
