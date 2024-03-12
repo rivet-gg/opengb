@@ -8,13 +8,6 @@ import { colors } from "../term/deps.ts";
 class KnownError extends Error {
 }
 
-export class UnreachableError extends KnownError {
-	constructor(_val: never) {
-		super("Unreachable.");
-		this.name = "UnreachableError";
-	}
-}
-
 export interface BuildErrorOpts extends ErrorOptions {
 	details?: string;
 
@@ -68,6 +61,13 @@ export class InternalError extends BuildError {
 		this.name = "InternalError";
 
 		this.originalError = opts?.originalError;
+	}
+}
+
+export class UnreachableError extends InternalError {
+	constructor(public readonly value: never) {
+		super("Unreachable.");
+		this.name = "UnreachableError";
 	}
 }
 
@@ -161,11 +161,13 @@ export function printError(error: Error) {
 			}
 		}
 
-		if (error instanceof InternalError && error.originalError?.stack) {
+		if (error instanceof UnreachableError) {
+			str += `  ${colors.dim("value")}: ${JSON.stringify(error.value)}\n`;
+		}
+
+		if (error instanceof InternalError) {
 			// Stack
-			for (const line of error.originalError.stack.split("\n")) {
-				if (line.trim().startsWith("at ")) str += ` ${colors.dim(line)}\n`;
-			}
+			str += prettyPrintStack(error.originalError ?? error);
 		}
 
 		if (error instanceof CommandError) {
@@ -201,12 +203,19 @@ export function printError(error: Error) {
 		let str = `${colors.bold(colors.red("[UNCAUGHT] " + error.name))}: ${error.message}\n`;
 
 		// Stack
-		if (error.stack) {
-			for (const line of error.stack.split("\n")) {
-				if (line.trim().startsWith("at ")) str += ` ${colors.dim(line)}\n`;
-			}
-		}
+		str += prettyPrintStack(error);
 
 		console.error(str);
 	}
+}
+
+function prettyPrintStack(error: Error): string {
+	if (!error.stack) return "";
+
+	let str = "";
+	for (let line of error.stack.split("\n")) {
+		line = line.trim();
+		if (line.startsWith("at ")) str += `  ${colors.dim(line)}\n`;
+	}
+	return str;
 }
