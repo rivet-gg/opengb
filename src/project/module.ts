@@ -124,7 +124,7 @@ export async function loadModule(
 	let db: ModuleDatabase | undefined = undefined;
 	if (await exists(resolve(modulePath, "db"), { isDirectory: true })) {
 		db = {
-			name: name.replace("-", "_"),
+			name: `module_${name.replace("-", "_")}`,
 		};
 	}
 
