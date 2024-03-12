@@ -170,17 +170,29 @@ export function printError(error: Error) {
 
 		if (error instanceof CommandError) {
 			// Command output
-			const stdout = new TextDecoder().decode(error.commandOutput.stdout).trimEnd();
-			const stderr = new TextDecoder().decode(error.commandOutput.stderr).trimEnd();
-
-			str += `  ${colors.dim("stdout")}: ${stdout}\n`;
-			for (const line of stdout.split("\n")) {
-				str += `  ${colors.dim(line)}\n`;
+			try {
+				const stdout = new TextDecoder().decode(error.commandOutput.stdout).trimEnd();
+				str += `  ${colors.dim("stdout")}: ${stdout}\n`;
+				for (const line of stdout.split("\n")) {
+					str += `  ${colors.dim(line)}\n`;
+				}
+			} catch (err) {
+				// HACK: If the command did not pipe stdout, Deno throws a TypeError. There's no
+				// way to check if the command piped stdout without catching the error.
+				if (err.name !== "TypeError") throw err;
 			}
 
-			str += `  ${colors.dim("stderr")}: ${stderr}\n`;
-			for (const line of stderr.split("\n")) {
-				str += `  ${colors.dim(line)}\n`;
+			try {
+				if (error.commandOutput.stderr.length > 0) {
+					const stderr = new TextDecoder().decode(error.commandOutput.stderr).trimEnd();
+					str += `  ${colors.dim("stderr")}: ${stderr}\n`;
+					for (const line of stderr.split("\n")) {
+						str += `  ${colors.dim(line)}\n`;
+					}
+				}
+			} catch (err) {
+				// HACK: See above
+				if (err.name !== "TypeError") throw err;
 			}
 		}
 
