@@ -123,6 +123,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	// Format files
 	const fmtOutput = await new Deno.Command("deno", {
 		args: ["fmt", configPath, entrypointPath],
+		signal: opts.signal,
 	}).output();
 	if (!fmtOutput.success) throw new CommandError("Failed to format generated files.", { commandOutput: fmtOutput });
 }

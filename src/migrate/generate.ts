@@ -12,6 +12,7 @@ export async function generateClient(
 	project: Project,
 	modules: Module[],
 	runtime: Runtime,
+	signal?: AbortSignal,
 ) {
 	await forEachPrismaSchema(
 		project,
@@ -27,6 +28,7 @@ export async function generateClient(
 					DATABASE_URL: databaseUrl,
 					PRISMA_CLIENT_FORCE_WASM: "true",
 				},
+				signal,
 			});
 
 			// Specify the path to the library & binary types

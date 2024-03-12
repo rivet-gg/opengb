@@ -5,7 +5,7 @@
 import { Project } from "../project/mod.ts";
 import { forEachPrismaSchema, runPrismaCommand } from "./mod.ts";
 
-export async function migrateReset(project: Project) {
+export async function migrateReset(project: Project, signal?: AbortSignal) {
 	await forEachPrismaSchema(project, [...project.modules.values()], async ({ databaseUrl }) => {
 		// Generate migrations & client
 		await runPrismaCommand(project, {
@@ -13,6 +13,7 @@ export async function migrateReset(project: Project) {
 			env: {
 				DATABASE_URL: databaseUrl,
 			},
+			signal,
 		});
 	});
 }

@@ -35,14 +35,17 @@ export interface BuildOpts {
 	format: Format;
 	runtime: Runtime;
 	dbDriver: DbDriver;
+	signal?: AbortSignal;
 	skipDenoCheck: boolean;
 }
 
 export async function build(project: Project, opts: BuildOpts) {
+	opts.signal?.throwIfAborted();
+
 	// Required for `migrateDev` and `migrateDeploy`
 	await ensurePostgresRunning(project);
 
-	const buildState = await createBuildState(project);
+	const buildState = await createBuildState(project, opts.signal);
 
 	await planProjectBuild(buildState, project, opts);
 

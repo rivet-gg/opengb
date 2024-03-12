@@ -12,7 +12,7 @@ const POSTGRES_STATE = {
 	running: false,
 };
 
-export async function ensurePostgresRunning(_project: Project) {
+export async function ensurePostgresRunning(_project: Project, signal?: AbortSignal) {
 	if (POSTGRES_STATE.running) return;
 	POSTGRES_STATE.running = true;
 
@@ -23,6 +23,7 @@ export async function ensurePostgresRunning(_project: Project) {
 		args: ["version"],
 		stdout: "piped",
 		stderr: "piped",
+		signal,
 	}).output();
 	if (!versionOutput.success) {
 		throw new UserError(
@@ -37,12 +38,14 @@ export async function ensurePostgresRunning(_project: Project) {
 	const volumeOutput = await new Deno.Command("docker", {
 		args: ["volume", "ls", "-q", "-f", `name=${VOLUME_NAME}`],
 		stdout: "piped",
+		signal,
 	}).output();
 	const volumeId = new TextDecoder().decode(volumeOutput.stdout).trim();
 	if (!volumeId) {
 		// Create the volume
 		const volumeCreateOutput = await new Deno.Command("docker", {
 			args: ["volume", "create", VOLUME_NAME],
+			signal,
 		}).output();
 		if (!volumeCreateOutput.success) {
 			throw new CommandError("Failed to create Postgres volume.", { commandOutput: volumeCreateOutput });
@@ -53,6 +56,7 @@ export async function ensurePostgresRunning(_project: Project) {
 	// configuration for a new container.
 	const rmOutput = await new Deno.Command("docker", {
 		args: ["rm", "-f", CONTAINER_NAME],
+		signal,
 	}).output();
 	if (!rmOutput.success) {
 		throw new CommandError("Failed to remove the existing Postgres container.", { commandOutput: rmOutput });
@@ -73,6 +77,7 @@ export async function ensurePostgresRunning(_project: Project) {
 			"POSTGRES_PASSWORD=postgres",
 			"postgres:16",
 		],
+		signal,
 	}).output();
 	if (!runOutput.success) {
 		throw new CommandError("Failed to start the Postgres container.", { commandOutput: runOutput });
@@ -84,6 +89,7 @@ export async function ensurePostgresRunning(_project: Project) {
 	while (true) {
 		const checkOutput = await new Deno.Command("docker", {
 			args: ["exec", CONTAINER_NAME, "pg_isready"],
+			signal,
 		}).output();
 		if (checkOutput.success) break;
 		await new Promise((r) => setTimeout(r, 50));

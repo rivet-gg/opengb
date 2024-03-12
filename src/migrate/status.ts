@@ -5,7 +5,7 @@
 import { Project } from "../project/mod.ts";
 import { forEachPrismaSchema, runPrismaCommand } from "./mod.ts";
 
-export async function migrateStatus(project: Project) {
+export async function migrateStatus(project: Project, signal?: AbortSignal) {
 	await forEachPrismaSchema(project, [...project.modules.values()], async ({ databaseUrl }) => {
 		// Get status
 		await runPrismaCommand(project, {
@@ -13,6 +13,7 @@ export async function migrateStatus(project: Project) {
 			env: {
 				DATABASE_URL: databaseUrl,
 			},
+			signal,
 		});
 	});
 }

@@ -14,22 +14,28 @@ export interface BuildState {
 	project: Project;
 	cache: Cache;
 	promises: Promise<void>[];
+	signal: AbortSignal;
 }
 
-export async function createBuildState(project: Project): Promise<BuildState> {
+export async function createBuildState(project: Project, signal?: AbortSignal): Promise<BuildState> {
 	const cache = await loadCache(project);
+	if (!signal) signal = new AbortController().signal;
+	signal.throwIfAborted();
 
 	// Build state
 	const buildState: BuildState = {
 		project,
 		cache,
 		promises: [],
+		signal,
 	};
 
 	return buildState;
 }
 
 export async function shutdownBuildState(buildState: BuildState) {
+	buildState.signal.throwIfAborted();
+
 	await writeCache(buildState.project, buildState.cache);
 }
 
@@ -62,10 +68,10 @@ interface BuildStepOpts {
 	build: (opts: BuildStepCallbackBuildOpts) => Promise<void>;
 
 	/** Runs if the step is cached. */
-	alreadyCached?: () => Promise<void>;
+	alreadyCached?: (opts: BuildStepCallbackOpts) => Promise<void>;
 
 	/** Runs after the step finishes. */
-	finally?: () => Promise<void>;
+	finally?: (opts: BuildStepCallbackOpts) => Promise<void>;
 }
 
 interface BuildStepCondition {
@@ -76,8 +82,13 @@ interface BuildStepCondition {
 	expressions?: Record<string, any>;
 }
 
-interface BuildStepCallbackBuildOpts {
+interface BuildStepCallbackOpts {
+	signal: AbortSignal;
+}
+
+interface BuildStepCallbackBuildOpts extends BuildStepCallbackOpts {
 	onStart: () => void;
+	signal: AbortSignal;
 }
 
 /**
@@ -87,6 +98,9 @@ export function buildStep(
 	buildState: BuildState,
 	opts: BuildStepOpts,
 ) {
+	const signal = buildState.signal;
+	signal.throwIfAborted();
+
 	const fn = async () => {
 		// Determine if needs to be built
 		let needsBuild: boolean;
@@ -122,12 +136,13 @@ export function buildStep(
 
 			await opts.build({
 				onStart,
+				signal,
 			});
 		} else {
-			if (opts.alreadyCached) await opts.alreadyCached();
+			if (opts.alreadyCached) await opts.alreadyCached({ signal });
 		}
 
-		if (opts.finally) await opts.finally();
+		if (opts.finally) await opts.finally({ signal });
 	};
 
 	buildState.promises.push(fn());
@@ -138,6 +153,8 @@ function logBuildStepStart(opts: BuildStepOpts) {
 }
 
 export async function waitForBuildPromises(buildState: BuildState): Promise<void> {
+	buildState.signal.throwIfAborted();
+
 	// Waits for all pending build promises. Do this in a loop in case a build
 	// step spawns more build steps.
 	while (buildState.promises.length > 0) {

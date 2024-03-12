@@ -22,6 +22,6 @@ export const formatCommand = new Command<GlobalOpts>()
 				stderr: "inherit",
 			})
 				.output();
-			if (!cmd.success) throw new UserError("Check failed.", { paths: sourceFiles });
+			if (!cmd.success) throw new UserError("Format failed.", { paths: sourceFiles });
 		},
 	);

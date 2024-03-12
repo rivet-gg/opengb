@@ -15,7 +15,7 @@ export interface WatchOpts {
 	 */
 	disableWatch?: boolean;
 
-	fn: (project: Project, abortController: AbortController) => Promise<void>;
+	fn: (project: Project, signal: AbortSignal) => Promise<void>;
 }
 
 export async function watch(initProject: Project, opts: WatchOpts) {
@@ -23,7 +23,7 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 	// TODO: catch errors
 
 	if (opts.disableWatch) {
-		await opts.fn(initProject, new AbortController());
+		await opts.fn(initProject, new AbortController().signal);
 		return;
 	}
 
@@ -32,7 +32,13 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 	while (true) {
 		// Run action
 		fnAbortController = new AbortController();
-		abortable(wrapWatchFn(project, opts, fnAbortController), fnAbortController.signal);
+		abortable(
+			wrapWatchFn(project, opts, fnAbortController.signal),
+			fnAbortController.signal,
+		)
+			.catch((err) => {
+				if (err.name != "AbortError") throw err;
+			});
 
 		// Wait for change that we care about
 		let foundEvent = false;
@@ -54,7 +60,7 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 
 		// Abort previous build. Ignore if it's already aborted.
 		try {
-			fnAbortController?.abort();
+			fnAbortController?.abort("Rebuilding project due to file change.");
 		} catch (err) {
 			if (err.name != "AbortError") throw err;
 		}
@@ -64,10 +70,14 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 	}
 }
 
-async function wrapWatchFn(project: Project, opts: WatchOpts, fnAbortController: AbortController) {
+async function wrapWatchFn(
+	project: Project,
+	opts: WatchOpts,
+	signal: AbortSignal,
+) {
 	// Gracefully handle errors
 	try {
-		await opts.fn(project, fnAbortController);
+		await opts.fn(project, signal);
 	} catch (err) {
 		printError(err);
 	}
@@ -78,7 +88,10 @@ function getWatchPaths(project: Project) {
 		resolve(project.path, "backend.yaml"),
 	];
 	for (const module of project.modules.values()) {
-		if (!("local" in module.registry.config) || module.registry.config.local.isExternal) continue;
+		if (
+			!("local" in module.registry.config) ||
+			module.registry.config.local.isExternal
+		) continue;
 		paths.push(module.path);
 	}
 	return paths;

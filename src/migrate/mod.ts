@@ -41,7 +41,10 @@ export async function forEachDatabase(
 	_project: Project,
 	modules: Module[],
 	callback: ForEachDatabaseCallback,
+	signal?: AbortSignal,
 ) {
+	signal?.throwIfAborted();
+
 	// Setup database
 	const defaultDatabaseUrl = Deno.env.get("DATABASE_URL") ??
 		"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable";
@@ -58,6 +61,8 @@ export async function forEachDatabase(
 
 	for (const mod of modules) {
 		if (!mod.db) continue;
+
+		signal?.throwIfAborted();
 
 		// Create database
 		await createDatabases(DB_STATE.defaultClient, mod.db);
@@ -77,6 +82,7 @@ export async function forEachPrismaSchema(
 	project: Project,
 	modules: Module[],
 	callback: ForEachPrismaSchemaCallback,
+	signal?: AbortSignal,
 ) {
 	await forEachDatabase(
 		project,
@@ -113,6 +119,7 @@ export async function forEachPrismaSchema(
 			// Callback
 			await callback({ databaseUrl, module, db, tempDir: prismaDir, generatedClientDir });
 		},
+		signal,
 	);
 }
 
@@ -150,7 +157,7 @@ const PRISMA_WORKSPACE_STATE = {
  * All commands are ran inside a Node Docker container in order to ensure we
  * don't need Node installed on the host.
  */
-async function ensurePrismaWorkspace(project: Project): Promise<string> {
+async function ensurePrismaWorkspace(project: Project, signal?: AbortSignal): Promise<string> {
 	const prismaDir = resolve(project.path, "_gen", "prisma_workspace");
 	await Deno.mkdir(prismaDir, { recursive: true });
 
@@ -160,6 +167,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 		// configuration for a new container.
 		const rmOutput = await new Deno.Command("docker", {
 			args: ["rm", "-f", NODE_CONTAINER_NAME],
+			signal,
 		}).output();
 		if (!rmOutput.success) {
 			throw new CommandError("Failed to remove the existing container.", { commandOutput: rmOutput });
@@ -179,6 +187,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 				// ===
 				"infinity",
 			],
+			signal,
 		}).output();
 		if (!runOutput.success) {
 			throw new CommandError("Failed to start the container.", { commandOutput: runOutput });
@@ -217,6 +226,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			],
 			stdout: "inherit",
 			stderr: "inherit",
+			signal,
 		}).output();
 		if (!chownOutput.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput });
 
@@ -237,6 +247,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			],
 			stdout: "inherit",
 			stderr: "inherit",
+			signal,
 		}).output();
 		if (!installOutput.success) {
 			throw new CommandError("Failed to install prisma dependencies.", { commandOutput: installOutput });
@@ -255,6 +266,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			],
 			stdout: "inherit",
 			stderr: "inherit",
+			signal,
 		}).output();
 		if (!chownOutput2.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput2 });
 	}
@@ -294,7 +306,9 @@ export async function runPrismaCommand(
 	project: Project,
 	opts: RunPrismaCommandOpts & Deno.CommandOptions,
 ) {
-	await ensurePrismaWorkspace(project);
+	const signal = opts.signal;
+
+	await ensurePrismaWorkspace(project, signal);
 
 	// HACK: Replace the host with the Docker gateway. This isn't a failsave solution.
 	if (opts.env.DATABASE_URL) {
@@ -319,6 +333,7 @@ export async function runPrismaCommand(
 		],
 		stdout: "inherit",
 		stderr: "inherit",
+		signal,
 	}).output();
 	if (!chownOutput.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput });
 
@@ -340,6 +355,7 @@ export async function runPrismaCommand(
 		stdout: "inherit",
 		stderr: "inherit",
 		env: opts.env,
+		signal,
 	}).output();
 	if (!prismaOutput.success) {
 		throw new CommandError(`Failed to run: prisma ${opts.args.join(" ")}`, { commandOutput: prismaOutput });
@@ -358,6 +374,7 @@ export async function runPrismaCommand(
 		],
 		stdout: "inherit",
 		stderr: "inherit",
+		signal,
 	}).output();
 	if (!chownOutput2.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput2 });
 }

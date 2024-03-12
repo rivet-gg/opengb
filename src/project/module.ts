@@ -62,7 +62,10 @@ export async function loadModule(
 	name: string,
 	projectModuleConfig: ProjectModuleConfig,
 	registry: Registry,
+	signal?: AbortSignal,
 ): Promise<Module> {
+	signal?.throwIfAborted();
+
 	// Read config
 	const config = await readModuleConfig(modulePath);
 

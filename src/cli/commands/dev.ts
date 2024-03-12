@@ -20,13 +20,14 @@ export const devCommand = new Command<GlobalOpts>()
 
 			await watch(project, {
 				disableWatch: !opts.watch,
-				async fn(project: Project) {
+				async fn(project: Project, signal: AbortSignal) {
 					// Build project
 					if (opts.build) {
 						await build(project, {
 							runtime: Runtime.Deno,
 							format: Format.Native,
 							dbDriver: DbDriver.NodePostgres,
+							signal,
 
 							// This gets ran on `deno run`
 							skipDenoCheck: true,
@@ -51,6 +52,7 @@ export const devCommand = new Command<GlobalOpts>()
 						],
 						stdout: "inherit",
 						stderr: "inherit",
+						signal,
 					})
 						.output();
 					if (!cmd.success) throw new InternalError("Entrypoint failed", { path: entrypointPath });

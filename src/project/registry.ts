@@ -27,12 +27,13 @@ export async function loadRegistry(
 	projectRoot: string,
 	name: string,
 	config: RegistryConfig,
+	signal?: AbortSignal,
 ): Promise<Registry> {
 	let output: ResolveRegistryOutput;
 	if ("local" in config) {
 		output = await resolveRegistryLocal(projectRoot, name, config.local);
 	} else if ("git" in config) {
-		output = await resolveRegistryGit(projectRoot, name, config.git);
+		output = await resolveRegistryGit(projectRoot, name, config.git, signal);
 	} else {
 		// Unknown project config
 		throw new UnreachableError(config);
@@ -46,7 +47,7 @@ export async function loadRegistry(
 	};
 }
 
-export async function loadDefaultRegistry(projectRoot: string): Promise<Registry> {
+export async function loadDefaultRegistry(projectRoot: string, signal?: AbortSignal): Promise<Registry> {
 	return await loadRegistry(
 		projectRoot,
 		"default",
@@ -61,6 +62,7 @@ export async function loadDefaultRegistry(projectRoot: string): Promise<Registry
 				directory: "./modules",
 			},
 		},
+		signal,
 	);
 }
 
@@ -93,6 +95,7 @@ async function resolveRegistryGit(
 	projectRoot: string,
 	name: string,
 	config: RegistryConfigGit,
+	signal?: AbortSignal,
 ): Promise<ResolveRegistryOutput> {
 	const projectConfigPath = resolve(projectRoot, "backend.yaml");
 
@@ -118,6 +121,7 @@ async function resolveRegistryGit(
 		for (const url of urlList) {
 			const lsRemoteCommand = await new Deno.Command("git", {
 				args: ["ls-remote", url],
+				signal,
 			}).output();
 			if (lsRemoteCommand.success) {
 				originUrl = url;
@@ -141,6 +145,7 @@ async function resolveRegistryGit(
 		// Clone repo
 		const cloneOutput = await new Deno.Command("git", {
 			args: ["clone", "--single-branch", originUrl, repoPath],
+			signal,
 		}).output();
 		if (!cloneOutput.success) {
 			throw new CommandError(
@@ -154,10 +159,12 @@ async function resolveRegistryGit(
 	const unstagedDiffOutput = await new Deno.Command("git", {
 		cwd: repoPath,
 		args: ["diff", "--quiet"],
+		signal,
 	}).output();
 	const stagedDiffOutput = await new Deno.Command("git", {
 		cwd: repoPath,
 		args: ["diff", "--quiet", "--cached"],
+		signal,
 	}).output();
 	if (!unstagedDiffOutput.success || !stagedDiffOutput.success) {
 		warn("💣 Discarding changes in git registry", name);
@@ -165,6 +172,7 @@ async function resolveRegistryGit(
 		const resetOutput = await new Deno.Command("git", {
 			cwd: repoPath,
 			args: ["reset", "--hard"],
+			signal,
 		}).output();
 		if (!resetOutput.success) {
 			throw new CommandError(
@@ -178,6 +186,7 @@ async function resolveRegistryGit(
 	const catOutput = await new Deno.Command("git", {
 		cwd: repoPath,
 		args: ["cat-file", "-t", gitRef],
+		signal,
 	}).output();
 	if (!catOutput.success) {
 		progress("Fetching", name);
@@ -185,6 +194,7 @@ async function resolveRegistryGit(
 		const fetchOutput = await new Deno.Command("git", {
 			cwd: repoPath,
 			args: ["fetch", "origin", gitRef],
+			signal,
 		}).output();
 		if (!fetchOutput.success) {
 			throw new CommandError(
@@ -198,6 +208,7 @@ async function resolveRegistryGit(
 	const checkoutOutput = await new Deno.Command("git", {
 		cwd: repoPath,
 		args: ["checkout", gitRef],
+		signal,
 	}).output();
 	if (!checkoutOutput.success) {
 		throw new CommandError(

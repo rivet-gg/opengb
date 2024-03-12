@@ -21,7 +21,7 @@ export interface LoadProjectOpts {
 	path?: string;
 }
 
-export async function loadProject(opts: LoadProjectOpts): Promise<Project> {
+export async function loadProject(opts: LoadProjectOpts, signal?: AbortSignal): Promise<Project> {
 	const projectRoot = resolve(Deno.cwd(), opts.path ?? ".");
 
 	// Read project config
@@ -38,12 +38,13 @@ export async function loadProject(opts: LoadProjectOpts): Promise<Project> {
 			projectRoot,
 			registryName,
 			registryConfig,
+			signal,
 		);
 		registries.set(registryName, registry);
 	}
 
 	if (!registries.has("default")) {
-		const defaultRegistry = await loadDefaultRegistry(projectRoot);
+		const defaultRegistry = await loadDefaultRegistry(projectRoot, signal);
 		registries.set("default", defaultRegistry);
 	}
 
@@ -73,7 +74,7 @@ export async function loadProject(opts: LoadProjectOpts): Promise<Project> {
 			projectModuleName,
 			projectModuleConfig,
 		);
-		const module = await loadModule(path, projectModuleName, projectModuleConfig, registry);
+		const module = await loadModule(path, projectModuleName, projectModuleConfig, registry, signal);
 		modules.set(projectModuleName, module);
 	}
 

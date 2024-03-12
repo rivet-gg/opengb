@@ -19,6 +19,8 @@ export async function planProjectBuild(
 	project: Project,
 	opts: BuildOpts,
 ) {
+	const signal = buildState.signal;
+
 	// TODO: This does not reuse the Prisma dir or the database connection, so is extra slow on the first run.
 	// Figure out how to make this use one `migrateDev` command and pass in any modified modules For now,
 	// these need to be migrated individually because `prisma migrate dev` is an interactive command. Also,
@@ -36,19 +38,20 @@ export async function planProjectBuild(
 						"Runtime": opts.runtime,
 					},
 				},
-				async build() {
+				async build({ signal }) {
 					if (module.registry.isExternal || Deno.env.get("CI") === "true") {
 						// Do not alter migrations, only deploy them
-						await migrateDeploy(project, [module]);
+						await migrateDeploy(project, [module], signal);
 					} else {
 						// Update migrations
 						await migrateDev(project, [module], {
 							createOnly: false,
+							signal,
 						});
 					}
 
 					// Generate client
-					await generateClient(project, [module], opts.runtime);
+					await generateClient(project, [module], opts.runtime, signal);
 				},
 			});
 
@@ -61,8 +64,8 @@ export async function planProjectBuild(
 	buildStep(buildState, {
 		name: "Generate",
 		description: "_gen/runtime/",
-		async build() {
-			await inflateRuntimeArchive(project);
+		async build({ signal }) {
+			await inflateRuntimeArchive(project, signal);
 		},
 	});
 
@@ -115,7 +118,7 @@ export async function planProjectBuild(
 		buildStep(buildState, {
 			name: "Bundle",
 			description: "_gen/output.js",
-			async build() {
+			async build({ signal }) {
 				const gen = resolve(project.path, "_gen");
 				const bundledFile = resolve(gen, "/output.js");
 
@@ -138,6 +141,8 @@ export async function planProjectBuild(
 					bundle: true,
 					minify: true,
 				});
+
+				signal.throwIfAborted();
 
 				// For some reason causes the program to exit early instead of waiting
 				// await esbuild.stop();
@@ -182,6 +187,8 @@ export async function planProjectBuild(
 						throw new InternalError("Failed to find required query-engine.wasm", { path: bundledFile });
 					}
 
+					signal.throwIfAborted();
+
 					await Deno.writeTextFile(bundledFile, bundleStr);
 
 					// Write manifest of file paths for easier upload from Rivet CLI
@@ -189,6 +196,8 @@ export async function planProjectBuild(
 						bundle: bundledFile,
 						wasm: wasmPath,
 					};
+
+					signal.throwIfAborted();
 
 					await Deno.writeTextFile(
 						resolve(gen, "manifest.json"),
@@ -209,6 +218,7 @@ export async function planProjectBuild(
 		async build() {
 			const checkOutput = await new Deno.Command("deno", {
 				args: ["check", "--quiet", resolve(project.path, "_gen", "entrypoint.ts")],
+				signal,
 			}).output();
 			if (!checkOutput.success) {
 				throw new UserError("Check failed.", {

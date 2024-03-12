@@ -10,12 +10,14 @@ import { forEachPrismaSchema } from "./mod.ts";
 
 export interface MigrateDevOpts {
 	createOnly: boolean;
+	signal?: AbortSignal;
 }
 
 export async function migrateDev(
 	project: Project,
 	modules: Module[],
 	opts: MigrateDevOpts,
+	signal?: AbortSignal,
 ) {
 	assert(
 		modules.every((m) => !m.registry.isExternal),
@@ -37,6 +39,7 @@ export async function migrateDev(
 				env: {
 					DATABASE_URL: databaseUrl,
 				},
+				signal,
 			});
 
 			// Copy back migrations dir
