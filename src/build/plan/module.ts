@@ -29,13 +29,13 @@ export async function planModuleBuild(
 			// Read schema from cache
 			const schema = buildState.cache.persist.moduleConfigSchemas[module.name];
 			assertExists(schema);
-			module.configSchema = schema;
+			module.userConfigSchema = schema;
 		},
 		async finally() {
-			assertExists(module.configSchema);
+			assertExists(module.userConfigSchema);
 
 			// Populate cache with response
-			buildState.cache.persist.moduleConfigSchemas[module.name] = module.configSchema;
+			buildState.cache.persist.moduleConfigSchemas[module.name] = module.userConfigSchema;
 		},
 	});
 

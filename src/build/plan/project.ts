@@ -213,4 +213,6 @@ export async function planProjectBuild(
 			}
 		},
 	});
+
+	await waitForBuildPromises(buildState);
 }

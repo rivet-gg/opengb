@@ -189,6 +189,8 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 
 	// Install Prisma
 	if (!PRISMA_WORKSPACE_STATE.didRunInstall) {
+		PRISMA_WORKSPACE_STATE.didRunInstall = true;
+
 		// Write package.json
 		const packageJson = JSON.stringify({
 			"devDependencies": {
@@ -251,8 +253,6 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			stderr: "inherit",
 		}).output();
 		if (!chownOutput2.success) throw new Error("Failed to fix permissions");
-
-		PRISMA_WORKSPACE_STATE.didRunInstall = true;
 	}
 
 	return prismaDir;

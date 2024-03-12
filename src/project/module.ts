@@ -29,24 +29,27 @@ export interface Module {
 	config: ModuleConfig;
 
 	/**
-	 * The config passed to this module in the project.yaml file.
-	 */
-	userConfig: unknown;
-
-	/**
 	 * The registry that the module was pulled from.
 	 */
 	registry: Registry;
+
+	/**
+	 * The config passed to this module in the project.yaml file.
+	 */
+	userConfig: unknown;
 
 	/**
 	 * The schema for the module's config file.
 	 *
 	 * Generated from config.ts
 	 */
-	configSchema?: tjs.Definition;
+	userConfigSchema?: tjs.Definition;
 
 	scripts: Map<string, Script>;
 	db?: ModuleDatabase;
+
+	// Cache
+	_hasUserConfigSchema?: boolean;
 }
 
 export interface ModuleDatabase {
@@ -168,4 +171,12 @@ export function typeGenPath(_project: Project, module: Module): string {
 
 export function configPath(module: Module): string {
 	return resolve(module.path, "config.ts");
+}
+
+export async function hasUserConfigSchema(module: Module): Promise<boolean> {
+	if (module._hasUserConfigSchema === undefined) {
+		module._hasUserConfigSchema = await exists(configPath(module));
+	}
+
+	return module._hasUserConfigSchema;
 }

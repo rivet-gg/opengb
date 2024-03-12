@@ -59,10 +59,11 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			${autoGenHeader()}
 			import { Runtime } from "${runtimeModPath}";
 			import { camelToSnake } from "${registryMapPath};
+			import { Registry, RegistryCamel } from "./registry.d.ts";
 			import config from "./runtime_config.ts";
 
 			async function main() {
-				const runtime = new Runtime(config, camelToSnake);
+				const runtime = new Runtime<Registry, RegistryCamel>(config, camelToSnake);
 				await runtime.serve();
 			}
 
@@ -76,10 +77,11 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			${autoGenHeader()}
 			import { Runtime } from "${runtimeModPath}";
 			import { camelToSnake } from "${registryMapPath}";
+			import { Registry, RegistryCamel } from "./registry.d.ts";
 			import config from "./runtime_config.ts";
 			import { serverHandler } from "${serverTsPath}";
 
-			const RUNTIME = new Runtime(config, camelToSnake);
+			const RUNTIME = new Runtime<Registry, RegistryCamel>(config, camelToSnake);
 			const SERVER_HANDLER = serverHandler(RUNTIME);
 
 			export default {
@@ -169,6 +171,9 @@ function generateModImports(project: Project, opts: BuildOpts) {
 		} else {
 			modConfig += `db: undefined,`;
 		}
+
+		// Generate user config
+		modConfig += `userConfig: ${JSON.stringify(mod.userConfig)},`;
 
 		modConfig += "},";
 	}

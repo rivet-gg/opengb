@@ -5,6 +5,7 @@ import { genRuntimeModPath } from "../project/project.ts";
 import { autoGenHeader } from "./misc.ts";
 import { camelify, pascalify } from "../types/case_conversions.ts";
 import { genRegistryMapPath } from "../project/project.ts";
+import { hasUserConfigSchema } from "../project/module.ts";
 
 export async function compileModuleHelper(
 	project: Project,
@@ -22,11 +23,13 @@ export async function compileModuleHelper(
 		`;
 	}
 
+	const { userConfigImport, userConfigType } = await getUserConfigImport(module, "..");
+
 	const source = dedent`
 		import { ModuleContext as ModuleContextInner } from "${runtimePath}";
 		import { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "./registry.d.ts";
-		
 		${dbImports}
+		${userConfigImport}
 		
 		/**
 		 * Empty Request/Response type.
@@ -37,9 +40,12 @@ export async function compileModuleHelper(
 		 */
 		export type Empty = Record<string, never>;
 		export { RuntimeError } from "${runtimePath}";
-		export type ModuleContext = ModuleContextInner<RegistryTypeInner, RegistryCamelTypeInner, ${
-		module.db ? "prisma.PrismaClient" : "undefined"
-	}>;
+		export type ModuleContext = ModuleContextInner<
+			RegistryTypeInner,
+			RegistryCamelTypeInner,
+			${userConfigType},
+			${module.db ? "prisma.PrismaClient" : "undefined"}
+		>;
 	`;
 
 	// Write source
@@ -55,6 +61,8 @@ export async function compileTestHelper(
 	const runtimePath = genRuntimeModPath(project);
 	const registryMapPath = genRegistryMapPath(project);
 
+	const { userConfigImport, userConfigType } = await getUserConfigImport(module, "..");
+
 	const source = dedent`
 		${autoGenHeader()}
 		import * as module from "./mod.ts";
@@ -62,12 +70,16 @@ export async function compileTestHelper(
 		import { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "./registry.d.ts";
 		import { camelToSnake } from "${registryMapPath}";
 		import config from "${project.path}/_gen/runtime_config.ts";
+		${userConfigImport}
 		
 		export * from "./mod.ts";
 		
-		export type TestContext = TestContextInner<RegistryTypeInner, RegistryCamelTypeInner, ${
-		module.db ? "module.prisma.PrismaClient" : "undefined"
-	}>;
+		export type TestContext = TestContextInner<
+			RegistryTypeInner,
+			RegistryCamelTypeInner,
+			${userConfigType},
+			${module.db ? "module.prisma.PrismaClient" : "undefined"}
+		>;
 		
 		export type TestFn = (ctx: TestContext) => Promise<void>;
 		
@@ -89,19 +101,23 @@ export async function compileScriptHelper(
 ) {
 	const runtimePath = genRuntimeModPath(project);
 
+	const { userConfigImport, userConfigType } = await getUserConfigImport(module, "../..");
+
 	const source = dedent`
 		${autoGenHeader()}
 		import * as module from "../mod.ts";
 		import { ScriptContext as ScriptContextInner } from "${runtimePath}";
 		import { Registry as RegistryTypeInner, RegistryCamel as RegistryCamelTypeInner } from "../registry.d.ts";
-
-		${module.db ? 'import { PrismaClient } from "../prisma/index.d.ts";' : ""}
+		${userConfigImport}
 
 		export * from "../mod.ts";
 
-		export type ScriptContext = ScriptContextInner<RegistryTypeInner, RegistryCamelTypeInner, ${
-		module.db ? "module.prisma.PrismaClient" : "undefined"
-	}>;
+		export type ScriptContext = ScriptContextInner<
+			RegistryTypeInner,
+			RegistryCamelTypeInner,
+			${userConfigType},
+			${module.db ? "module.prisma.PrismaClient" : "undefined"}
+		>;
 	`;
 
 	// Write source
@@ -322,4 +338,14 @@ export async function compileModuleTypeHelper(
 	const helperPath = typeGenPath(project, module);
 	await Deno.mkdir(dirname(helperPath), { recursive: true });
 	await Deno.writeTextFile(helperPath, source);
+}
+
+async function getUserConfigImport(module: Module, moduleRoot: string) {
+	let userConfigImport = "";
+	let userConfigType = "Record<string, never>";
+	if (await hasUserConfigSchema(module)) {
+		userConfigImport = `import { Config as UserConfig } from "${moduleRoot}/config.ts";`;
+		userConfigType = "UserConfig";
+	}
+	return { userConfigImport, userConfigType };
 }
