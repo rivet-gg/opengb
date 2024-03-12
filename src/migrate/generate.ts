@@ -63,7 +63,7 @@ export async function generateClient(
 			);
 
 			// Copy to module
-			const dstDir = resolve(module.path, "_gen", "prisma", "client", "js");
+			const dstDir = resolve(module.path, "_gen", "prisma");
 			await emptyDir(dstDir);
 			await copy(generatedClientDir, dstDir, { overwrite: true });
 

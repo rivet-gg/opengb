@@ -3,7 +3,7 @@
 import { colors } from "./deps.ts";
 
 export function verbose(msg: string, data = "") {
-	if (Deno.env.get("VERBOSE")) console.error(`${colors.bold(colors.blue(msg))} ${data}`);
+	if (Deno.env.get("VERBOSE")) console.error(`${colors.bold(colors.gray(msg))} ${data}`);
 }
 
 export function info(msg: string, data = "") {

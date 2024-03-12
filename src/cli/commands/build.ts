@@ -1,9 +1,12 @@
 import { Command, ValidationError } from "../deps.ts";
 import { GlobalOpts, initProject } from "../common.ts";
 import { build, DbDriver, Format, Runtime } from "../../build/mod.ts";
+import { watch } from "../../watch/mod.ts";
+import { Project } from "../../project/mod.ts";
 
 export const buildCommand = new Command<GlobalOpts>()
 	.description("Build the project")
+	.option("--watch", "Automatically rebuid on changes", { default: false })
 	.option(
 		"-r, --runtime <runtime:string>",
 		"Set target runtime (deno, cloudflare)",
@@ -21,7 +24,8 @@ export const buildCommand = new Command<GlobalOpts>()
 				}
 			},
 		},
-	).option(
+	)
+	.option(
 		"-f, --output-format <format:string>",
 		"Set output format (native, bundled)",
 		{
@@ -90,9 +94,14 @@ export const buildCommand = new Command<GlobalOpts>()
 			}
 		}
 
-		await build(project, {
-			format: opts.outputFormat!,
-			runtime: opts.runtime,
-			dbDriver: opts.dbDriver!,
+		await watch(project, {
+			disableWatch: !opts.watch,
+			async fn(project: Project) {
+				await build(project, {
+					format: opts.outputFormat!,
+					runtime: opts.runtime,
+					dbDriver: opts.dbDriver!,
+				});
+			},
 		});
 	});
