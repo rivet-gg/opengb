@@ -2,12 +2,12 @@
 //
 // Wrapper around `prisma migrate dev`
 
-import { Project } from "../project/mod.ts";
+import { Module, Project } from "../project/mod.ts";
 import { forEachDatabase } from "./mod.ts";
 import { runPrismaCommand } from "./prisma.ts";
 
-export async function migrateStatus(project: Project, signal?: AbortSignal) {
-	await forEachDatabase(project, [...project.modules.values()], async ({ databaseUrl, module }) => {
+export async function migrateStatus(project: Project, modules: Module[], signal?: AbortSignal) {
+	await forEachDatabase(project, modules, async ({ databaseUrl, module }) => {
 		// Get status
 		await runPrismaCommand(project, module, {
 			args: ["migrate", "status"],

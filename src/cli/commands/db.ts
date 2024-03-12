@@ -4,36 +4,72 @@ import { migrateDev } from "../../migrate/dev.ts";
 import { migrateStatus } from "../../migrate/status.ts";
 import { migrateDeploy } from "../../migrate/deploy.ts";
 import { migrateReset } from "../../migrate/reset.ts";
-import { ensurePostgresRunning } from "../../utils/postgres_daemon.ts";
+import { UserError } from "../../error/mod.ts";
+import { Project } from "../../project/mod.ts";
 
 export const dbCommand = new Command<GlobalOpts>()
 	.description("Database commands");
 
 dbCommand.action(() => dbCommand.showHelp());
 
-dbCommand.command("dev").option("-c, --create-only", "Create only", {
-	default: false,
-}).action(async (opts) => {
-	const project = await initProject(opts);
-	const modules = Array.from(project.modules.values())
-		.filter((m) => !m.registry.isExternal);
-	await ensurePostgresRunning(project);
-	await migrateDev(project, modules, { createOnly: opts.createOnly });
-});
+dbCommand
+	.command("dev")
+	.arguments("[...modules:string]")
+	.option("-c, --create-only", "Create only", {
+		default: false,
+	})
+	.action(async (opts, ...moduleNames: string[]) => {
+		const project = await initProject(opts);
+		const modules = resolveModules(project, moduleNames);
 
-dbCommand.command("status").action(async (opts) => {
-	await migrateStatus(await initProject(opts));
-});
+		// Validate modules
+		for (const module of modules) {
+			if (module.registry.isExternal) {
+				throw new UserError(`Cannot run this command against external module: ${module.name}`);
+			}
+		}
 
-dbCommand.command("reset").action(async (opts) => {
-	await migrateReset(await initProject(opts));
-});
+		await migrateDev(project, modules, { createOnly: opts.createOnly });
+	});
 
-dbCommand.command("deploy").action(async (opts) => {
-	const project = await initProject(opts);
-	await ensurePostgresRunning(project);
-	await migrateDeploy(project, [...project.modules.values()]);
-});
+dbCommand
+	.command("status")
+	.arguments("[...modules:string]")
+	.action(async (opts, ...moduleNames: string[]) => {
+		const project = await initProject(opts);
+		const modules = resolveModules(project, moduleNames);
+		await migrateStatus(project, modules);
+	});
+
+dbCommand
+	.command("reset")
+	.arguments("[...modules:string]")
+	.action(async (opts, ...moduleNames: string[]) => {
+		const project = await initProject(opts);
+		const modules = resolveModules(project, moduleNames);
+		await migrateReset(project, modules);
+	});
+
+dbCommand
+	.command("deploy")
+	.arguments("[...modules:string]")
+	.action(async (opts, ...moduleNames: string[]) => {
+		const project = await initProject(opts);
+		const modules = resolveModules(project, moduleNames);
+		await migrateDeploy(project, modules);
+	});
+
+function resolveModules(project: Project, moduleNames: string[]) {
+	if (moduleNames.length > 0) {
+		return moduleNames.map((name) => {
+			const module = project.modules.get(name);
+			if (!module) throw new UserError(`Module not found: ${name}`);
+			return module;
+		});
+	} else {
+		return Array.from(project.modules.values());
+	}
+}
 
 // TODO: https://github.com/rivet-gg/opengb-engine/issues/84
 // TODO: https://github.com/rivet-gg/opengb-engine/issues/85
