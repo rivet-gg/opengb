@@ -1,5 +1,6 @@
 import { InternalError } from "../error/mod.ts";
 import { verbose } from "../term/status.ts";
+import { addShutdownHandler } from "./shutdown_handler.ts";
 
 // Leave 1 core free
 const MAX_WORKERS = Math.max(1, navigator.hardwareConcurrency - 1);
@@ -188,3 +189,5 @@ export function cleanupAllPools() {
 		shutdownPool(pool);
 	}
 }
+
+addShutdownHandler(async () => cleanupAllPools());

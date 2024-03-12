@@ -26,8 +26,6 @@ export async function createBuildState(project: Project): Promise<BuildState> {
 		promises: [],
 	};
 
-	globalThis.addEventListener("unload", async () => await shutdownBuildState(buildState));
-
 	return buildState;
 }
 

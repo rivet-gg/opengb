@@ -4,6 +4,7 @@ import { Module, ModuleDatabase, Project } from "../project/mod.ts";
 import { assertValidString } from "./validate.ts";
 import { emptyDir } from "../deps.ts";
 import { CommandError } from "../error/mod.ts";
+import { addShutdownHandler } from "../utils/shutdown_handler.ts";
 
 const NODE_IMAGE = "node:21-alpine";
 const NODE_CONTAINER_NAME = "opengb-node";
@@ -50,7 +51,7 @@ export async function forEachDatabase(
 		DB_STATE.defaultClient = new PostgresClient(defaultDatabaseUrl);
 		await DB_STATE.defaultClient.connect();
 
-		globalThis.addEventListener("unload", async () => {
+		addShutdownHandler(async () => {
 			await DB_STATE.defaultClient?.end();
 		});
 	}
@@ -183,7 +184,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			throw new CommandError("Failed to start the container.", { commandOutput: runOutput });
 		}
 
-		globalThis.addEventListener("unload", shutdownNodeContainer);
+		addShutdownHandler(shutdownNodeContainer);
 
 		PRISMA_WORKSPACE_STATE.didStartContainer = true;
 	}
@@ -269,7 +270,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 async function shutdownNodeContainer() {
 	const shutdownOutput = await new Deno.Command("docker", {
 		args: ["rm", "-f", NODE_CONTAINER_NAME],
-	}).outputSync();
+	}).output();
 	if (!shutdownOutput.success) {
 		throw new CommandError("Failed to stop the container.", { commandOutput: shutdownOutput });
 	}

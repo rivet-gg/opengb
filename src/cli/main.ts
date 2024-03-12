@@ -9,8 +9,8 @@ import { lintCommand } from "./commands/lint.ts";
 import { formatCommand } from "./commands/format.ts";
 import { initCommand } from "./commands/init.ts";
 import { cleanCommand } from "./commands/clean.ts";
-import { cleanupAllPools } from "../utils/worker_pool.ts";
 import { printError } from "../error/mod.ts";
+import { runShutdown } from "../utils/shutdown_handler.ts";
 
 // Run command
 const command = new Command();
@@ -45,8 +45,7 @@ try {
 		exitCode = 1;
 	}
 } finally {
-	// Cleanup
-	cleanupAllPools();
+	await runShutdown();
 }
 
 Deno.exit(exitCode);

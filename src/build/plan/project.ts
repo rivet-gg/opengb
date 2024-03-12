@@ -211,7 +211,9 @@ export async function planProjectBuild(
 				args: ["check", "--quiet", resolve(project.path, "_gen", "entrypoint.ts")],
 			}).output();
 			if (!checkOutput.success) {
-				throw new UserError("Check failed.", { details: new TextDecoder().decode(checkOutput.stderr) });
+				throw new UserError("Check failed.", {
+					details: new TextDecoder().decode(checkOutput.stderr).trim(),
+				});
 			}
 		},
 	});
