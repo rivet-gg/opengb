@@ -46,11 +46,10 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 		const watcher = Deno.watchFs(watchPaths);
 		verbose("Watching", watchPaths.join(", "));
 		for await (const event of watcher) {
-			verbose("Watch event", JSON.stringify(event));
 			const relevantPaths = event.paths.filter(shouldPathTriggerRebuild);
 			if (relevantPaths.length > 0) {
 				foundEvent = true;
-				info("Change detected", relevantPaths.join(", "));
+				info("Change detected", `${event.kind}: ${relevantPaths.join(", ")}`);
 				break;
 			}
 		}

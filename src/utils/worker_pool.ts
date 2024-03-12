@@ -119,7 +119,8 @@ function tickGlobalState() {
 
 	while (true) {
 		verbose(
-			`Tick pool (workers: ${GLOBAL_STATE.activeWorkers}/${MAX_WORKERS}, pendingJobs: ${GLOBAL_STATE.pendingJobs.length})`,
+			"Tick pool",
+			`workers: ${GLOBAL_STATE.activeWorkers}/${MAX_WORKERS}, pendingJobs: ${GLOBAL_STATE.pendingJobs.length})`,
 		);
 
 		// Check if can schedule a job
