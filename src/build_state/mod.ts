@@ -149,7 +149,16 @@ export function buildStep(
 }
 
 function logBuildStepStart(opts: BuildStepOpts) {
-	progress(opts.name, opts.description);
+	let description = opts.description;
+	if (opts.module && opts.script) {
+		if (description) description += ` (${opts.module.name}.${opts.script.name})`;
+		else description = `${opts.module.name}.${opts.script.name}`;
+	} else if (opts.module) {
+		if (description) description += ` (${opts.module.name})`;
+		else description = opts.module.name;
+	}
+
+	progress(opts.name, description);
 }
 
 export async function waitForBuildPromises(buildState: BuildState): Promise<void> {

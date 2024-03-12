@@ -12,7 +12,7 @@ export async function planModuleBuild(
 ) {
 	buildStep(buildState, {
 		name: "Parse",
-		description: `modules/${module.name}/config.ts`,
+		description: `config.ts`,
 		module,
 		condition: {
 			// TODO: use tjs.getProgramFiles() to get the dependent files?
@@ -41,7 +41,7 @@ export async function planModuleBuild(
 
 	buildStep(buildState, {
 		name: "Generate",
-		description: `modules/${module.name}/_gen/registry.d.ts`,
+		description: `_gen/registry.d.ts`,
 		module,
 		condition: {
 			files: [resolve(module.path, "module.yaml")],
@@ -53,7 +53,7 @@ export async function planModuleBuild(
 
 	buildStep(buildState, {
 		name: "Generate",
-		description: `modules/${module.name}/_gen/mod.ts`,
+		description: `_gen/mod.ts`,
 		module,
 		condition: {
 			files: [resolve(module.path, "module.yaml")],
@@ -65,7 +65,7 @@ export async function planModuleBuild(
 
 	buildStep(buildState, {
 		name: "Generate",
-		description: `modules/${module.name}/_gen/test.ts`,
+		description: `_gen/test.ts`,
 		module,
 		condition: {
 			files: [resolve(module.path, "module.yaml")],

@@ -12,7 +12,7 @@ export async function planScriptBuild(
 ) {
 	buildStep(buildState, {
 		name: "Parse",
-		description: `modules/${module.name}/scripts/${script.name}.ts`,
+		description: `${script.name}.ts`,
 		module,
 		script,
 		condition: {
@@ -57,7 +57,7 @@ export async function planScriptBuild(
 
 	buildStep(buildState, {
 		name: "Generate",
-		description: `modules/${module.name}/_gen/scripts/${script.name}.ts`,
+		description: `_gen/scripts/${script.name}.ts`,
 		module,
 		script,
 		condition: {

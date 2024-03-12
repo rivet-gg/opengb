@@ -27,7 +27,7 @@ export async function planProjectBuild(
 		if (module.db) {
 			buildStep(buildState, {
 				name: "Generate",
-				description: `modules/${module.name}/_gen/prisma/`,
+				description: `_gen/prisma/`,
 				module,
 				condition: {
 					files: [resolve(module.path, "db", "schema.prisma")],
@@ -220,7 +220,8 @@ export async function planProjectBuild(
 
 			const migrations = await glob.glob(resolve(module.path, "db", "migrations", "*", "*.sql"));
 			buildStep(buildState, {
-				name: "Database Deploy",
+				name: "Migrate Database",
+				description: "deploy",
 				condition: {
 					files: migrations,
 				},
@@ -238,7 +239,8 @@ export async function planProjectBuild(
 
 			const migrations = await glob.glob(resolve(module.path, "db", "migrations", "*", "*.sql"));
 			buildStep(buildState, {
-				name: "Database Dev",
+				name: "Migrate Database",
+				description: "develop",
 				condition: {
 					files: [resolve(module.path, "db", "schema.prisma"), ...migrations],
 				},

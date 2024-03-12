@@ -5,4 +5,5 @@ datasource db {
 
 model DbEntry {
     id         String     @id @default(uuid()) @db.Uuid
+    test2 String?
 }
