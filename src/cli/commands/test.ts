@@ -14,6 +14,7 @@ export const testCommand = new Command<GlobalOpts>()
 	.option("--no-build", "Don't build source files")
 	.option("--no-check", "Don't check source files before running")
 	.option("--strict-schemas", "Strictly validate schemas", { default: false })
+	.option("--force-deploy-migrations", "Auto deploy migrations without using development prompt", { default: false })
 	.option("--watch", "Automatically rerun tests on changes")
 	.action(
 		async (opts, ...modulesFilter: string[]) => {
@@ -30,12 +31,12 @@ export const testCommand = new Command<GlobalOpts>()
 							runtime: Runtime.Deno,
 							format: Format.Native,
 							dbDriver: DbDriver.NodePostgres,
-							autoMigrate: true,
 							strictSchemas: opts.strictSchemas,
-
 							// This gets ran on `deno test`
 							skipDenoCheck: true,
-
+							migrate: {
+								forceDeploy: opts.forceDeployMigrations,
+							},
 							signal,
 						});
 					}

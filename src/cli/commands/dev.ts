@@ -28,12 +28,12 @@ export const devCommand = new Command<GlobalOpts>()
 							runtime: Runtime.Deno,
 							format: Format.Native,
 							dbDriver: DbDriver.NodePostgres,
-							autoMigrate: true,
 							strictSchemas: opts.strictSchemas,
-
 							// This gets ran on `deno run`
 							skipDenoCheck: true,
-
+							migrate: {
+								forceDeploy: false,
+							},
 							signal,
 						});
 					}

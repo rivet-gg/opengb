@@ -66,6 +66,7 @@ export const buildCommand = new Command<GlobalOpts>()
 		"Automatically migrate the database",
 		{ default: false },
 	)
+	.option("--force-deploy-migrations", "Auto deploy migrations without using development prompt", { default: false })
 	.option(
 		"--no-strict-schemas",
 		"Disable strict schema validation",
@@ -111,9 +112,13 @@ export const buildCommand = new Command<GlobalOpts>()
 					format: opts.outputFormat!,
 					runtime: opts.runtime,
 					dbDriver: opts.dbDriver!,
-					autoMigrate: opts.autoMigrate,
 					strictSchemas: opts.strictSchemas,
 					skipDenoCheck: false,
+					migrate: opts.autoMigrate
+						? {
+							forceDeploy: opts.forceDeployMigrations,
+						}
+						: undefined,
 					signal,
 				});
 			},

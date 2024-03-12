@@ -26,7 +26,7 @@ jobs:
       - name: Run Tests
         env:
           VERBOSE: true
-        run: cd tests/basic/ && opengb test || docker ps
+        run: cd tests/basic/ && opengb test --strict-schemas --force-deploy-migrations || docker ps
 
       # Inspect containers running after tests finish
       - name: docker ps

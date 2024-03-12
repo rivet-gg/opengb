@@ -35,9 +35,15 @@ export interface BuildOpts {
 	format: Format;
 	runtime: Runtime;
 	dbDriver: DbDriver;
-	autoMigrate: boolean;
+	/** If true, parse TypeScript to generate JSON schemas to be validated at runtime. */
 	strictSchemas: boolean;
+	/** If true, don't run `deno check` on the generated code. */
 	skipDenoCheck: boolean;
+	/** If exists, run database migrations. */
+	migrate?: {
+		/** If true, run migrations automatically without dev mode. */
+		forceDeploy: boolean;
+	};
 	signal?: AbortSignal;
 }
 
