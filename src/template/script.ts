@@ -1,6 +1,7 @@
 import { UserError } from "../error/mod.ts";
 import { resolve, stringify } from "../deps.ts";
 import { getLocalRegistry, Project } from "../project/mod.ts";
+import { camelify } from "../types/case_conversions.ts";
 
 export async function templateScript(
 	project: Project,
@@ -88,9 +89,9 @@ export async function run(
 import { assert, assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 
 test("e2e", async (ctx: TestContext) => {
-	const res = await ctx.call("${moduleName}", "${scriptName}", {
+	const res = await ctx.modules.${camelify(moduleName)}.${camelify(scriptName)}({
 		// TODO:
-	}) as any;
+	});
 });
 
 `;
