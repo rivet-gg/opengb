@@ -70,7 +70,7 @@ export async function loadCache(project: Project): Promise<Cache> {
 	};
 }
 
-export async function shutdownCache(project: Project, cache: Cache) {
+export async function writeCache(project: Project, cache: Cache) {
 	const buildCachePath = resolve(project.path, "_gen", "cache.json");
 
 	// Write cache

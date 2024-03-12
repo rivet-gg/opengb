@@ -1,5 +1,5 @@
 import { Module, Project, Script } from "../project/mod.ts";
-import { Cache, compareExprHash, compareFileHash, loadCache, shutdownCache } from "./cache.ts";
+import { Cache, compareExprHash, compareFileHash, loadCache, writeCache } from "./cache.ts";
 import { progress } from "../term/status.ts";
 
 // TODO: Convert this to a build flag
@@ -30,7 +30,7 @@ export async function createBuildState(project: Project): Promise<BuildState> {
 }
 
 export async function shutdownBuildState(buildState: BuildState) {
-	await shutdownCache(buildState.project, buildState.cache);
+	await writeCache(buildState.project, buildState.cache);
 }
 
 interface BuildStepOpts {
@@ -138,7 +138,11 @@ function logBuildStepStart(opts: BuildStepOpts) {
 }
 
 export async function waitForBuildPromises(buildState: BuildState): Promise<void> {
-	const promises = buildState.promises;
-	buildState.promises = [];
-	await Promise.all(promises);
+	// Waits for all pending build promises. Do this in a loop in case a build
+	// step spawns more build steps.
+	while (buildState.promises.length > 0) {
+		const promises = buildState.promises;
+		buildState.promises = [];
+		await Promise.all(promises);
+	}
 }
