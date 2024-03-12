@@ -1,6 +1,7 @@
 import { resolve } from "../deps.ts";
 import { Project } from "../project/mod.ts";
 import { genRegistryMapPath, genRuntimeModPath, genRuntimePath } from "../project/project.ts";
+import { CommandError } from "../error/mod.ts";
 import { autoGenHeader } from "./misc.ts";
 import { BuildOpts, DbDriver, Runtime } from "./mod.ts";
 
@@ -120,10 +121,10 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	);
 
 	// Format files
-	const { success } = await new Deno.Command("deno", {
+	const fmtOutput = await new Deno.Command("deno", {
 		args: ["fmt", configPath, entrypointPath],
 	}).output();
-	if (!success) throw new Error(`Failed to format generated files`);
+	if (!fmtOutput.success) throw new CommandError("Failed to format generated files.", { commandOutput: fmtOutput });
 }
 
 function generateModImports(project: Project, opts: BuildOpts) {

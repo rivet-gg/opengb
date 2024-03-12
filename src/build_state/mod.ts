@@ -1,6 +1,8 @@
 import { Module, Project, Script } from "../project/mod.ts";
 import { Cache, compareExprHash, compareFileHash, loadCache, writeCache } from "./cache.ts";
 import { progress } from "../term/status.ts";
+import { assert } from "../deps.ts";
+import { CombinedError } from "../error/mod.ts";
 
 // TODO: Convert this to a build flag
 export const FORCE_BUILD = false;
@@ -143,6 +145,17 @@ export async function waitForBuildPromises(buildState: BuildState): Promise<void
 	while (buildState.promises.length > 0) {
 		const promises = buildState.promises;
 		buildState.promises = [];
-		await Promise.all(promises);
+		const responses = await Promise.allSettled(promises);
+
+		// Build error if needed
+		const errorResponses = responses
+			.filter((response) => response.status === "rejected")
+			.map((response) => {
+				assert(response.status === "rejected");
+				return response.reason;
+			});
+		if (errorResponses.length > 0) {
+			throw new CombinedError(errorResponses);
+		}
 	}
 }

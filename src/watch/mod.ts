@@ -3,6 +3,8 @@ import { resolve, SEP } from "../deps.ts";
 import { Project } from "../project/mod.ts";
 import { loadProject } from "../project/project.ts";
 import { info, verbose } from "../term/status.ts";
+import { InternalError } from "../error/mod.ts";
+import { printError } from "../error/mod.ts";
 
 export interface WatchOpts {
 	/**
@@ -30,7 +32,7 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 	while (true) {
 		// Run action
 		fnAbortController = new AbortController();
-		abortable(opts.fn(project, fnAbortController), fnAbortController.signal);
+		abortable(wrapWatchFn(project, opts, fnAbortController), fnAbortController.signal);
 
 		// Wait for change that we care about
 		let foundEvent = false;
@@ -47,7 +49,7 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 			}
 		}
 		if (!foundEvent) {
-			throw new Error("Unreachable: watchFs iterator ended");
+			throw new InternalError("Unreachable: watchFs iterator ended");
 		}
 
 		// Abort previous build. Ignore if it's already aborted.
@@ -59,6 +61,15 @@ export async function watch(initProject: Project, opts: WatchOpts) {
 
 		// Reload project
 		project = await loadProject({ path: project.path });
+	}
+}
+
+async function wrapWatchFn(project: Project, opts: WatchOpts, fnAbortController: AbortController) {
+	// Gracefully handle errors
+	try {
+		await opts.fn(project, fnAbortController);
+	} catch (err) {
+		printError(err);
 	}
 }
 

@@ -1,3 +1,4 @@
+import { CommandError } from "../error/mod.ts";
 import { initProject } from "../cli/common.ts";
 
 export async function generate(path?: string) {
@@ -26,7 +27,7 @@ export async function generate(path?: string) {
 		name: string,
 		config: Generator,
 	) {
-		const { success } = await new Deno.Command("docker", {
+		const buildOutput = await new Deno.Command("docker", {
 			args: [
 				"run",
 				"--rm",
@@ -42,8 +43,8 @@ export async function generate(path?: string) {
 				`/local/_gen/sdks/${name}/`,
 			],
 		}).output();
-		if (!success) {
-			throw new Error("Failed to generate OpenAPI SDK");
+		if (!buildOutput.success) {
+			throw new CommandError("Failed to generate OpenAPI SDK.", { commandOutput: buildOutput });
 		}
 	}
 

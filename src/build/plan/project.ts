@@ -11,6 +11,8 @@ import { compileTypeHelpers } from "../gen.ts";
 import { generateDenoConfig } from "../deno_config.ts";
 import { generateEntrypoint } from "../entrypoint.ts";
 import { generateOpenApi } from "../openapi.ts";
+import { InternalError } from "../../error/mod.ts";
+import { UserError } from "../../error/mod.ts";
 
 export async function planProjectBuild(
 	buildState: BuildState,
@@ -177,7 +179,7 @@ export async function planProjectBuild(
 							"query-engine.wasm",
 						);
 					} else if (/"[\w\\/\.\-]+query-engine\.wasm/.test(bundleStr)) {
-						throw new Error("Failed to find required query-engine.wasm");
+						throw new InternalError("Failed to find required query-engine.wasm", { path: bundledFile });
 					}
 
 					await Deno.writeTextFile(bundledFile, bundleStr);
@@ -209,7 +211,7 @@ export async function planProjectBuild(
 				args: ["check", "--quiet", resolve(project.path, "_gen", "entrypoint.ts")],
 			}).output();
 			if (!checkOutput.success) {
-				throw new Error(`Check failed:\n${new TextDecoder().decode(checkOutput.stderr)}`);
+				throw new UserError("Check failed.", { details: new TextDecoder().decode(checkOutput.stderr) });
 			}
 		},
 	});

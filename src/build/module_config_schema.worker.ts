@@ -6,6 +6,7 @@
 
 import { tjs } from "./deps.ts";
 import { configPath, Module } from "../project/module.ts";
+import { InternalError } from "../error/mod.ts";
 
 export interface WorkerRequest {
 	module: Module;
@@ -64,7 +65,7 @@ self.onmessage = async (ev) => {
 		[moduleConfigPath],
 	);
 	if (moduleConfigSchema === null) {
-		throw new Error("Failed to generate config schema for " + moduleConfigPath);
+		throw new InternalError("Failed to generate config schema.", { path: moduleConfigPath });
 	}
 
 	self.postMessage({

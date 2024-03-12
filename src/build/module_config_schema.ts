@@ -4,6 +4,8 @@ import { runJob } from "../utils/worker_pool.ts";
 import { WorkerRequest, WorkerResponse } from "./module_config_schema.worker.ts";
 import { createWorkerPool } from "../utils/worker_pool.ts";
 import { hasUserConfigSchema } from "../project/module.ts";
+import { UserError } from "../error/mod.ts";
+import { resolve } from "../deps.ts";
 
 const WORKER_POOL = createWorkerPool<WorkerRequest, WorkerResponse>({
 	source: import.meta.resolve("./module_config_schema.worker.ts"),
@@ -41,12 +43,15 @@ export async function compileModuleConfigSchema(
 		"#/definitions/Config",
 	);
 	if (!moduleConfigSchema) {
-		throw new Error("Failed to get module config schema");
+		throw new UserError("Type `Config` does not exist.", { path: resolve(module.path, "config.ts") });
 	}
 
 	if (!moduleConfigSchema(module.userConfig)) {
-		throw new Error(
-			`Invalid module config:\n${JSON.stringify(module.userConfig)}\n${JSON.stringify(moduleConfigSchema.errors)}`,
+		throw new UserError(
+			`Invalid module config.`,
+			{
+				details: `${JSON.stringify(moduleConfigSchema.errors, null, 2)}`,
+			},
 		);
 	}
 }

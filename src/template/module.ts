@@ -1,3 +1,4 @@
+import { UserError } from "../error/mod.ts";
 import { ModuleConfig } from "../config/module.ts";
 import { resolve, stringify } from "../deps.ts";
 import { getLocalRegistry, Project } from "../project/mod.ts";
@@ -5,11 +6,11 @@ import { dedent } from "./deps.ts";
 
 export async function templateModule(project: Project, moduleName: string) {
 	const localRegistry = getLocalRegistry(project);
-	if (!localRegistry) throw new Error("Local registry not configured");
+	if (!localRegistry) throw new UserError("No \`local\` registry found in backend.yaml.");
 	const localModulesPath = localRegistry.path;
 
 	if (project.modules.has(moduleName)) {
-		throw new Error("Module already exists");
+		throw new UserError("Module already exists.");
 	}
 
 	// Create directires

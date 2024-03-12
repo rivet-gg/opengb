@@ -6,6 +6,7 @@
 
 import { tjs } from "./deps.ts";
 import { Script } from "../project/mod.ts";
+import { InternalError } from "../error/mod.ts";
 
 export interface WorkerRequest {
 	script: Script;
@@ -64,7 +65,7 @@ self.onmessage = async (ev) => {
 		[script.path],
 	);
 	if (requestSchema === null) {
-		throw new Error("Failed to generate request schema for " + script.path);
+		throw new InternalError("Failed to generate request schema.", { path: script.path });
 	}
 
 	const responseSchema = tjs.generateSchema(
@@ -74,8 +75,9 @@ self.onmessage = async (ev) => {
 		[script.path],
 	);
 	if (responseSchema === null) {
-		throw new Error(
-			"Failed to generate response schema for " + script.path,
+		throw new InternalError(
+			"Failed to generate response schema.",
+			{ path: script.path },
 		);
 	}
 

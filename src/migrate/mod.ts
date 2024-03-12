@@ -3,6 +3,7 @@ import { dedent, PostgresClient } from "./deps.ts";
 import { Module, ModuleDatabase, Project } from "../project/mod.ts";
 import { assertValidString } from "./validate.ts";
 import { emptyDir } from "../deps.ts";
+import { CommandError } from "../error/mod.ts";
 
 const NODE_IMAGE = "node:21-alpine";
 const NODE_CONTAINER_NAME = "opengb-node";
@@ -160,7 +161,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			args: ["rm", "-f", NODE_CONTAINER_NAME],
 		}).output();
 		if (!rmOutput.success) {
-			throw new Error("Failed to remove the existing container.");
+			throw new CommandError("Failed to remove the existing container.", { commandOutput: rmOutput });
 		}
 
 		// Start the container
@@ -179,7 +180,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			],
 		}).output();
 		if (!runOutput.success) {
-			throw new Error("Failed to start the container:\n" + new TextDecoder().decode(runOutput.stderr));
+			throw new CommandError("Failed to start the container.", { commandOutput: runOutput });
 		}
 
 		globalThis.addEventListener("unload", shutdownNodeContainer);
@@ -216,7 +217,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			stdout: "inherit",
 			stderr: "inherit",
 		}).output();
-		if (!chownOutput.success) throw new Error("Failed to fix permissions");
+		if (!chownOutput.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput });
 
 		// Install dependencies
 		const installOutput = await new Deno.Command("docker", {
@@ -236,7 +237,9 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			stdout: "inherit",
 			stderr: "inherit",
 		}).output();
-		if (!installOutput.success) throw new Error("Failed to install prisma dependencies");
+		if (!installOutput.success) {
+			throw new CommandError("Failed to install prisma dependencies.", { commandOutput: installOutput });
+		}
 
 		// Fix permissions on the repo
 		const chownOutput2 = await new Deno.Command("docker", {
@@ -252,7 +255,7 @@ async function ensurePrismaWorkspace(project: Project): Promise<string> {
 			stdout: "inherit",
 			stderr: "inherit",
 		}).output();
-		if (!chownOutput2.success) throw new Error("Failed to fix permissions");
+		if (!chownOutput2.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput2 });
 	}
 
 	return prismaDir;
@@ -268,7 +271,7 @@ async function shutdownNodeContainer() {
 		args: ["rm", "-f", NODE_CONTAINER_NAME],
 	}).outputSync();
 	if (!shutdownOutput.success) {
-		throw new Error("Failed to stop the container.");
+		throw new CommandError("Failed to stop the container.", { commandOutput: shutdownOutput });
 	}
 }
 
@@ -316,7 +319,7 @@ export async function runPrismaCommand(
 		stdout: "inherit",
 		stderr: "inherit",
 	}).output();
-	if (!chownOutput.success) throw new Error("Failed to fix permissions");
+	if (!chownOutput.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput });
 
 	// Run the command
 	// TODO: This won't work in CI without TTY
@@ -338,7 +341,7 @@ export async function runPrismaCommand(
 		env: opts.env,
 	}).output();
 	if (!prismaOutput.success) {
-		throw new Error(`Failed to run: prisma ${opts.args.join(" ")}`);
+		throw new CommandError(`Failed to run: prisma ${opts.args.join(" ")}`, { commandOutput: prismaOutput });
 	}
 
 	// Fix permissions on the repo
@@ -355,5 +358,5 @@ export async function runPrismaCommand(
 		stdout: "inherit",
 		stderr: "inherit",
 	}).output();
-	if (!chownOutput2.success) throw new Error("Failed to fix permissions");
+	if (!chownOutput2.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput2 });
 }

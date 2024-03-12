@@ -5,6 +5,7 @@ import { build, DbDriver, Format, Runtime } from "../../build/mod.ts";
 import { ensurePostgresRunning } from "../../utils/postgres_daemon.ts";
 import { watch } from "../../watch/mod.ts";
 import { Project } from "../../project/mod.ts";
+import { UserError } from "../../error/mod.ts";
 
 // TODO: https://github.com/rivet-gg/opengb-engine/issues/86
 export const testCommand = new Command<GlobalOpts>()
@@ -71,7 +72,7 @@ export const testCommand = new Command<GlobalOpts>()
 						stderr: "inherit",
 					})
 						.output();
-					if (!cmd.success) throw new Error("Entrypoint failed");
+					if (!cmd.success) throw new UserError("Tests failed.");
 				},
 			});
 		},

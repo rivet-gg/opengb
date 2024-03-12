@@ -1,9 +1,10 @@
+import { UserError, UserErrorOpts } from "../../error/mod.ts";
 import { printableAsciiRegex } from "./defs.ts";
 import { bold, brightRed } from "./deps.ts";
 
-export class IdentError extends Error {
-	public constructor(private issue: string, private identifier: string) {
-		super(`"${debugIdentifier(identifier)}": ${issue}`);
+export class IdentifierError extends UserError {
+	public constructor(private issue: string, private identifier: string, opts?: UserErrorOpts) {
+		super(`"${debugIdentifier(identifier)}": ${issue}`, opts);
 
 		this.name = "IdentifierError";
 	}

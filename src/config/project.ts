@@ -1,6 +1,7 @@
 import { parse, resolve } from "../deps.ts";
 import { Ajv } from "./deps.ts";
 import schema from "../../artifacts/project_schema.json" with { type: "json" };
+import { InternalError } from "../error/mod.ts";
 
 export interface ProjectConfig extends Record<string, unknown> {
 	registries: { [name: string]: RegistryConfig };
@@ -63,7 +64,7 @@ const projectConfigAjv = new Ajv.default({
 export async function readConfig(projectPath: string): Promise<ProjectConfig> {
 	// Read config
 	const configRaw = await Deno.readTextFile(
-		resolve(projectPath, "backend.yaml"),
+		configPath(projectPath),
 	);
 	const config = parse(configRaw) as ProjectConfig;
 
@@ -72,13 +73,17 @@ export async function readConfig(projectPath: string): Promise<ProjectConfig> {
 		"#/definitions/ProjectConfig",
 	);
 	if (!projectConfigSchema) {
-		throw new Error("Failed to get project config schema");
+		throw new InternalError("Failed to get project config schema");
 	}
 	if (!projectConfigSchema(config)) {
-		throw new Error(
+		throw new InternalError(
 			`Invalid project config: ${JSON.stringify(projectConfigSchema.errors)}`,
 		);
 	}
 
 	return config;
+}
+
+export function configPath(root: string): string {
+	return resolve(root, "backend.yaml");
 }

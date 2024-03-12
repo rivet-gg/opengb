@@ -1,6 +1,6 @@
-export enum IdentType {
-	ModuleScripts = "snake_case",
-	Errors = "SCREAMING_SNAKE_CASE",
+export enum Casing {
+	Snake = "snake_case",
+	ScreamingSnake = "SCREAMING_SNAKE_CASE",
 }
 
 /**
@@ -9,9 +9,9 @@ export enum IdentType {
  * `regexes[identType].test(ident)` will return whether `ident` is a valid
  * `identType`.
  */
-export const regexes: Record<IdentType, RegExp> = {
-	[IdentType.ModuleScripts]: /^[a-z]+(_[a-z0-9]+)*$/,
-	[IdentType.Errors]: /^[A-Z]+(_[A-Z0-9]+)*$/,
+export const regexes: Record<Casing, RegExp> = {
+	[Casing.Snake]: /^[a-z]+(_[a-z0-9]+)*$/,
+	[Casing.ScreamingSnake]: /^[A-Z]+(_[A-Z0-9]+)*$/,
 };
 
 /**

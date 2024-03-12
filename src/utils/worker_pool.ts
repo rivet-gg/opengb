@@ -1,3 +1,6 @@
+import { InternalError } from "../error/mod.ts";
+import { verbose } from "../term/status.ts";
+
 // Leave 1 core free
 const MAX_WORKERS = Math.max(1, navigator.hardwareConcurrency - 1);
 
@@ -69,7 +72,7 @@ export interface CreateWorkerOpts {
 export function createWorkerPool<Req, Res>(
 	opts: CreateWorkerOpts,
 ): WorkerPool<Req, Res> {
-	if (GLOBAL_STATE.shutdown) throw new Error("Global state is shut down");
+	if (GLOBAL_STATE.shutdown) throw new InternalError("Global pool state is shut down.");
 
 	const pool: WorkerPool<Req, Res> = {
 		source: opts.source,
@@ -90,7 +93,7 @@ export interface RunJobOpts<Req, Res> {
  * Runs a job on a pool once a worker becomes available.
  */
 export function runJob<Req, Res>({ pool, request, onStart }: RunJobOpts<Req, Res>): Promise<Res> {
-	if (pool.shutdown) throw new Error("Pool is shut down");
+	if (pool.shutdown) throw new InternalError("Pool is shut down.");
 
 	return new Promise<Res>((resolve: (x: Res) => void, reject) => {
 		const pendingJob: PendingJob<Req, Res> = {
@@ -111,10 +114,12 @@ export function runJob<Req, Res>({ pool, request, onStart }: RunJobOpts<Req, Res
  * Called any time a worker becomes available or a job is pushed to the pool.
  */
 function tickGlobalState() {
-	if (GLOBAL_STATE.shutdown) throw new Error("Shut down");
+	if (GLOBAL_STATE.shutdown) throw new InternalError("Global pool state already shut down.");
 
 	while (true) {
-		// console.log(`Tick pool (workers: ${GLOBAL_STATE.activeWorkers}/${THREADS}, pendingJobs: ${GLOBAL_STATE.pendingJobs.length})`);
+		verbose(
+			`Tick pool (workers: ${GLOBAL_STATE.activeWorkers}/${MAX_WORKERS}, pendingJobs: ${GLOBAL_STATE.pendingJobs.length})`,
+		);
 
 		// Check if can schedule a job
 		if (GLOBAL_STATE.activeWorkers >= MAX_WORKERS) {
@@ -142,17 +147,23 @@ function tickGlobalState() {
 		GLOBAL_STATE.activeWorkers++;
 		job.onStart?.();
 		worker.worker.onmessage = (ev) => {
-			const res = ev.data;
-			job.resolve(res);
+			job.resolve(ev.data);
+
 			worker!.busy = false;
 			GLOBAL_STATE.activeWorkers--;
 			tickGlobalState();
 		};
-		worker.worker.onerror = (err) => {
-			job.reject(err);
+		worker.worker.onerror = (ev) => {
+			// TODO: We can't pass errors cleanly from the worker to here
+
+			job.reject(ev);
+
 			worker!.busy = false;
 			GLOBAL_STATE.activeWorkers--;
 			tickGlobalState();
+
+			// Prevent propegating error
+			ev.preventDefault();
 		};
 		worker.worker.postMessage(job.request);
 	}

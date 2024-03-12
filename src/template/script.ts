@@ -1,18 +1,20 @@
+import { UserError } from "../error/mod.ts";
 import { resolve, stringify } from "../deps.ts";
-import { Project } from "../project/mod.ts";
+import { getLocalRegistry, Project } from "../project/mod.ts";
 
 export async function templateScript(
 	project: Project,
 	moduleName: string,
 	scriptName: string,
 ) {
-	// if (!project.localRegistry) throw new Error("Local registry not configured");
-	// const modulesPath = project.localRegistry.path;
+	if (!getLocalRegistry(project)) throw new UserError("No \`local\` registry found in backend.yaml.");
 
 	const mod = project.modules.get(moduleName);
-	if (!mod) throw new Error(`Missing module ${moduleName}`);
-	if (!("local" in mod.registry.config)) throw new Error(`Module ${moduleName} is not in a local registry`);
-	if (mod.registry.isExternal) throw new Error(`Module ${moduleName} is in an external registry`);
+	if (!mod) throw new UserError(`Module \`${moduleName}\` does not exist.`);
+	if (!("local" in mod.registry.config)) {
+		throw new UserError(`Module \`${moduleName}\` does not belong to a local registry.`);
+	}
+	if (mod.registry.isExternal) throw new UserError(`Module \`${moduleName}\` must not be in an external registry.`);
 
 	// Create scripts
 	const scriptPath = resolve(
@@ -22,7 +24,7 @@ export async function templateScript(
 	);
 	try {
 		await Deno.stat(scriptPath);
-		throw new Error("Script already exists");
+		throw new UserError(`Script \`${scriptName}\` already exists in module \`${moduleName}\`.`);
 	} catch (error) {
 		if (!(error instanceof Deno.errors.NotFound)) {
 			throw error;

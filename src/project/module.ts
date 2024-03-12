@@ -1,13 +1,14 @@
-import { exists, resolve } from "../deps.ts";
+import { exists, relative, resolve } from "../deps.ts";
 import { glob, tjs } from "./deps.ts";
-import { readConfig as readModuleConfig } from "../config/module.ts";
+import { configPath as moduleConfigPath, readConfig as readModuleConfig } from "../config/module.ts";
 import { ModuleConfig } from "../config/module.ts";
 import { Script } from "./script.ts";
 import { Project } from "./project.ts";
 import { Registry } from "./registry.ts";
 import { validateIdentifier } from "../types/identifiers/mod.ts";
-import { IdentType } from "../types/identifiers/defs.ts";
+import { Casing } from "../types/identifiers/defs.ts";
 import { ProjectModuleConfig } from "../config/project.ts";
+import { UserError } from "../error/mod.ts";
 
 export interface Module {
 	/**
@@ -74,10 +75,7 @@ export async function loadModule(
 	// Read scripts
 	const scripts = new Map<string, Script>();
 	for (const scriptName in config.scripts) {
-		const scriptNameIssue = validateIdentifier(scriptName, IdentType.ModuleScripts);
-		if (scriptNameIssue) {
-			throw new Error(scriptNameIssue.toString("script"));
-		}
+		validateIdentifier(scriptName, Casing.Snake);
 
 		// Load script
 		const scriptPath = resolve(
@@ -85,8 +83,12 @@ export async function loadModule(
 			scriptName + ".ts",
 		);
 		if (!await exists(scriptPath)) {
-			throw new Error(
-				`Script not found: ${scriptPath}\nCheck the scripts in your module.yaml are configured correctly.`,
+			throw new UserError(
+				`Script not found at ${relative(Deno.cwd(), scriptPath)}.`,
+				{
+					suggest: "Check the scripts in the module.yaml are configured correctly.",
+					path: moduleConfigPath(modulePath),
+				},
 			);
 		}
 
@@ -104,19 +106,15 @@ export async function loadModule(
 	// Throw error extra scripts
 	if (expectedScripts.size > 0) {
 		const scriptList = Array.from(expectedScripts).map((x) => `- ${resolve(scriptsPath, x)}\n`);
-		throw new Error(
-			`Found extra scripts not registered in module.yaml:\n\n${
-				scriptList.join("")
-			}\nAdd these scripts to the module.yaml file.`,
+		throw new UserError(
+			`Found extra scripts not registered in module.yaml.`,
+			{ details: scriptList.join(""), suggest: "Add these scripts to the module.yaml file.", path: scriptsPath },
 		);
 	}
 
 	// Verify error names
 	for (const errorName in config.errors) {
-		const errorNameIssue = validateIdentifier(errorName, IdentType.Errors);
-		if (errorNameIssue) {
-			throw new Error(errorNameIssue.toString("error"));
-		}
+		validateIdentifier(errorName, Casing.ScreamingSnake);
 	}
 
 	// Load db config

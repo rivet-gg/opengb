@@ -1,6 +1,7 @@
 import { parse, resolve } from "../deps.ts";
 import { Ajv } from "./deps.ts";
 import schema from "../../artifacts/module_schema.json" with { type: "json" };
+import { InternalError } from "../error/mod.ts";
 
 export interface ModuleConfig extends Record<string, unknown> {
 	status?: "preview" | "beta" | "stable" | "deprecated";
@@ -52,13 +53,17 @@ export async function readConfig(modulePath: string): Promise<ModuleConfig> {
 		"#/definitions/ModuleConfig",
 	);
 	if (!moduleConfigSchema) {
-		throw new Error("Failed to get module config schema");
+		throw new InternalError("Failed to get module config schema");
 	}
 	if (!moduleConfigSchema(config)) {
-		throw new Error(
+		throw new InternalError(
 			`Invalid module config: ${JSON.stringify(moduleConfigSchema.errors)}`,
 		);
 	}
 
 	return config;
+}
+
+export function configPath(modulePath: string): string {
+	return resolve(modulePath, "module.yaml");
 }

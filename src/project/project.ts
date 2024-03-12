@@ -1,13 +1,14 @@
 import { assert, copy, emptyDir, exists, resolve } from "../deps.ts";
-import { bold, brightRed, glob } from "./deps.ts";
-import { readConfig as readProjectConfig } from "../config/project.ts";
+import { glob } from "./deps.ts";
+import { configPath as projectConfigPath, readConfig as readProjectConfig } from "../config/project.ts";
 import { ProjectConfig } from "../config/project.ts";
 import { loadModule, Module } from "./module.ts";
 import { loadRegistry, Registry } from "./registry.ts";
 import { ProjectModuleConfig } from "../config/project.ts";
 import { validateIdentifier } from "../types/identifiers/mod.ts";
-import { IdentType } from "../types/identifiers/defs.ts";
+import { Casing } from "../types/identifiers/defs.ts";
 import { loadDefaultRegistry } from "./registry.ts";
+import { UserError } from "../error/mod.ts";
 
 export interface Project {
 	path: string;
@@ -49,8 +50,16 @@ export async function loadProject(opts: LoadProjectOpts): Promise<Project> {
 	// Validate local registry
 	const localRegistry = registries.get("local");
 	if (localRegistry) {
-		if (!("local" in localRegistry.config)) throw new Error("Local registry must be configured with local");
-		if (localRegistry.isExternal) throw new Error("Local registry can't be external");
+		if (!("local" in localRegistry.config)) {
+			throw new UserError("Registry named `local` is special and must be configured as a local registry.", {
+				path: projectConfigPath(projectRoot),
+			});
+		}
+		if (localRegistry.isExternal) {
+			throw new UserError("Registry named `local` is special and can't be external.", {
+				path: projectConfigPath(projectRoot),
+			});
+		}
 	}
 
 	// Load modules
@@ -60,9 +69,9 @@ export async function loadProject(opts: LoadProjectOpts): Promise<Project> {
 
 		const { path, registry } = await fetchAndResolveModule(
 			projectRoot,
-			projectConfig,
 			registries,
 			projectModuleName,
+			projectModuleConfig,
 		);
 		const module = await loadModule(path, projectModuleName, projectModuleConfig, registry);
 		modules.set(projectModuleName, module);
@@ -85,11 +94,14 @@ export async function loadProject(opts: LoadProjectOpts): Promise<Project> {
 	}
 
 	if (missingDepsByModule.size > 0) {
-		let message = bold(brightRed("Unresolved module dependencies:\n"));
+		let details = "";
 		for (const [moduleName, missingDeps] of missingDepsByModule) {
-			message += `\tCannot resolve dependencies for ${moduleName}: ${missingDeps.join(", ")}\n`;
+			details += `Cannot resolve dependencies for ${moduleName}: ${missingDeps.join(", ")}\n`;
 		}
-		throw new Error(message);
+		throw new UserError("Unresolved module dependencies.", {
+			details,
+			path: projectConfigPath(projectRoot),
+		});
 	}
 
 	// Module can't depend on itself
@@ -101,11 +113,14 @@ export async function loadProject(opts: LoadProjectOpts): Promise<Project> {
 	}
 
 	if (selfDepModules.length > 0) {
-		let message = bold(brightRed("Modules can't depend on themselves:\n"));
+		let details = "";
 		for (const moduleName of selfDepModules) {
-			message += `\tModule ${moduleName} can't depend on itself\n`;
+			details += `Module ${moduleName} can't depend on itself\n`;
 		}
-		throw new Error(message);
+		throw new UserError("Modules can't depend on themselves.", {
+			details,
+			path: projectConfigPath(projectRoot),
+		});
 	}
 
 	return { path: projectRoot, config: projectConfig, registries, modules };
@@ -133,24 +148,19 @@ interface FetchAndResolveModuleOutput {
  */
 async function fetchAndResolveModule(
 	projectRoot: string,
-	projectConfig: ProjectConfig,
 	registries: Map<string, Registry>,
 	moduleName: string,
+	module: ProjectModuleConfig,
 ): Promise<FetchAndResolveModuleOutput> {
-	const moduleNameIssue = validateIdentifier(moduleName, IdentType.ModuleScripts);
-	if (moduleNameIssue) {
-		throw new Error(moduleNameIssue.toString("module"));
-	}
-
-	// Lookup module
-	const module = projectConfig.modules[moduleName];
-	if (!module) throw new Error(`Module not found ${moduleName}`);
+	validateIdentifier(moduleName, Casing.Snake);
 
 	// Lookup registry
 	const registryName = registryNameForModule(module);
 	const registry = registries.get(registryName);
 	if (!registry) {
-		throw new Error(`Registry ${registryName} not found for module ${module}`);
+		throw new UserError(`Registry \`${registryName}\` not found for module \`${module}\`.`, {
+			path: projectConfigPath(projectRoot),
+		});
 	}
 
 	// Resolve module path
@@ -159,13 +169,15 @@ async function fetchAndResolveModule(
 	if (!await exists(resolve(sourcePath, "module.yaml"))) {
 		if (pathModuleName != moduleName) {
 			// Has alias
-			throw new Error(
-				`Module ${pathModuleName} (alias of ${moduleName}) not found in registry ${registryName}`,
+			throw new UserError(
+				`Module \`${pathModuleName}\` (alias of \`${moduleName}\`) not found in registry \`${registryName}\`.`,
+				{ path: projectConfigPath(projectRoot) },
 			);
 		} else {
 			// No alias
-			throw new Error(
-				`Module ${pathModuleName} not found in registry ${registryName}`,
+			throw new UserError(
+				`Module \`${pathModuleName}\` not found in registry \`${registryName}\`.`,
+				{ path: projectConfigPath(projectRoot) },
 			);
 		}
 	}

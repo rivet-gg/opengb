@@ -1,6 +1,7 @@
 import { Command } from "../deps.ts";
 import { GlobalOpts, initProject } from "../common.ts";
 import { listSourceFiles } from "../../project/mod.ts";
+import { UserError } from "../../error/mod.ts";
 
 export const formatCommand = new Command<GlobalOpts>()
 	.description("Format source files")
@@ -21,6 +22,6 @@ export const formatCommand = new Command<GlobalOpts>()
 				stderr: "inherit",
 			})
 				.output();
-			if (!cmd.success) throw new Error("Check failed");
+			if (!cmd.success) throw new UserError("Check failed.", { paths: sourceFiles });
 		},
 	);

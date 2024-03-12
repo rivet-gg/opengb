@@ -1,6 +1,8 @@
 import { emptyDir, exists, resolve } from "../deps.ts";
 import { RegistryConfig, RegistryConfigGit, RegistryConfigLocal } from "../config/project.ts";
-import { progress } from "../term/status.ts";
+import { progress, warn } from "../term/status.ts";
+import { UnreachableError, UserError } from "../error/mod.ts";
+import { CommandError } from "../error/mod.ts";
 
 export interface Registry {
 	path: string;
@@ -28,12 +30,12 @@ export async function loadRegistry(
 ): Promise<Registry> {
 	let output: ResolveRegistryOutput;
 	if ("local" in config) {
-		output = await resolveRegistryLocal(projectRoot, config.local);
+		output = await resolveRegistryLocal(projectRoot, name, config.local);
 	} else if ("git" in config) {
 		output = await resolveRegistryGit(projectRoot, name, config.git);
 	} else {
 		// Unknown project config
-		throw new Error("Unreachable");
+		throw new UnreachableError(config);
 	}
 
 	return {
@@ -69,14 +71,19 @@ interface ResolveRegistryOutput {
 
 async function resolveRegistryLocal(
 	projectRoot: string,
+	name: string,
 	config: RegistryConfigLocal,
 ): Promise<ResolveRegistryOutput> {
+	const projectConfigPath = resolve(projectRoot, "backend.yaml");
+
 	const isExternal = config.isExternal ?? false;
 
 	// Check that registry exists
 	const path = resolve(projectRoot, config.directory);
 	if (!await exists(path)) {
-		throw new Error(`Registry not found at ${path}`);
+		throw new UserError(`Could not find directory ${path} for local registry \`${name}\`.`, {
+			path: projectConfigPath,
+		});
 	}
 
 	return { path, isExternal };
@@ -87,6 +94,8 @@ async function resolveRegistryGit(
 	name: string,
 	config: RegistryConfigGit,
 ): Promise<ResolveRegistryOutput> {
+	const projectConfigPath = resolve(projectRoot, "backend.yaml");
+
 	const repoPath = resolve(projectRoot, "_gen", "git_registries", name);
 	const gitRef = resolveGitRef(config);
 
@@ -105,19 +114,23 @@ async function resolveRegistryGit(
 
 		// Test each endpoint
 		let originUrl: string | undefined;
+		let errorOutput = "";
 		for (const url of urlList) {
 			const lsRemoteCommand = await new Deno.Command("git", {
 				args: ["ls-remote", url],
 			}).output();
 			if (lsRemoteCommand.success) {
 				originUrl = url;
+				errorOutput = new TextDecoder().decode(lsRemoteCommand.stderr);
 				break;
 			}
 		}
 
 		// If no valid endpoint was found
 		if (!originUrl) {
-			throw new Error(`Failed to find valid git endpoint for registry ${name}`);
+			throw new UserError(`Git endpoint for registry \`${name}\` is unreachable:\n\n${errorOutput}`, {
+				path: projectConfigPath,
+			});
 		}
 
 		progress("Fetching", originUrl);
@@ -130,8 +143,9 @@ async function resolveRegistryGit(
 			args: ["clone", "--single-branch", originUrl, repoPath],
 		}).output();
 		if (!cloneOutput.success) {
-			throw new Error(
-				`Failed to clone registry ${originUrl}:\n${new TextDecoder().decode(cloneOutput.stderr)}`,
+			throw new CommandError(
+				`Failed to clone registry ${originUrl}.`,
+				{ commandOutput: cloneOutput },
 			);
 		}
 	}
@@ -146,15 +160,16 @@ async function resolveRegistryGit(
 		args: ["diff", "--quiet", "--cached"],
 	}).output();
 	if (!unstagedDiffOutput.success || !stagedDiffOutput.success) {
-		console.warn("💣 Discarding changes in git registry", name);
+		warn("💣 Discarding changes in git registry", name);
 
 		const resetOutput = await new Deno.Command("git", {
 			cwd: repoPath,
 			args: ["reset", "--hard"],
 		}).output();
 		if (!resetOutput.success) {
-			throw new Error(
-				`Failed to reset registry ${name}:\n${new TextDecoder().decode(resetOutput.stderr)}`,
+			throw new CommandError(
+				`Failed to reset registry ${name}.`,
+				{ commandOutput: resetOutput },
 			);
 		}
 	}
@@ -172,8 +187,9 @@ async function resolveRegistryGit(
 			args: ["fetch", "origin", gitRef],
 		}).output();
 		if (!fetchOutput.success) {
-			throw new Error(
-				`Failed to fetch registry ${name} at ${gitRef}:\n${new TextDecoder().decode(fetchOutput.stderr)}`,
+			throw new CommandError(
+				`Failed to fetch registry ${name} at ${gitRef}.`,
+				{ commandOutput: fetchOutput },
 			);
 		}
 	}
@@ -184,15 +200,18 @@ async function resolveRegistryGit(
 		args: ["checkout", gitRef],
 	}).output();
 	if (!checkoutOutput.success) {
-		throw new Error(
-			`Failed to checkout registry ${name} at ${gitRef}:\n${new TextDecoder().decode(checkoutOutput.stderr)}`,
+		throw new CommandError(
+			`Failed to checkout registry ${name} at ${gitRef}.`,
+			{ commandOutput: checkoutOutput },
 		);
 	}
 
 	// Join sub directory
 	const path = resolve(repoPath, config.directory ?? "");
 	if (!await exists(path)) {
-		throw new Error(`Registry not found at ${path}`);
+		throw new UserError(`Could not find directory ${config.directory} for git registry \`${name}\`.`, {
+			path: projectConfigPath,
+		});
 	}
 
 	return { path, isExternal: true };
@@ -206,6 +225,6 @@ function resolveGitRef(registryConfig: RegistryConfigGit): string {
 	} else if ("tag" in registryConfig) {
 		return `tags/${registryConfig.tag}`;
 	} else {
-		throw new Error("Unreachable");
+		throw new UnreachableError(registryConfig);
 	}
 }

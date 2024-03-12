@@ -1,6 +1,7 @@
 import { Command } from "../deps.ts";
 import { GlobalOpts, initProject } from "../common.ts";
 import { listSourceFiles } from "../../project/mod.ts";
+import { UserError } from "../../error/mod.ts";
 
 export const lintCommand = new Command<GlobalOpts>()
 	.description("Lint source files")
@@ -19,6 +20,6 @@ export const lintCommand = new Command<GlobalOpts>()
 				stderr: "inherit",
 			})
 				.output();
-			if (!cmd.success) throw new Error("Lint failed");
+			if (!cmd.success) throw new UserError("Lint failed.", { paths: sourceFiles });
 		},
 	);

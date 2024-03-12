@@ -5,6 +5,7 @@ import { build, DbDriver, Format, Runtime } from "../../build/mod.ts";
 import { ensurePostgresRunning } from "../../utils/postgres_daemon.ts";
 import { watch } from "../../watch/mod.ts";
 import { Project } from "../../project/mod.ts";
+import { InternalError } from "../../error/mod.ts";
 
 export const devCommand = new Command<GlobalOpts>()
 	.description("Start the development server")
@@ -41,17 +42,18 @@ export const devCommand = new Command<GlobalOpts>()
 					if (opts.check) args.push("--check");
 
 					// Run entrypoint
+					const entrypointPath = resolve(project.path, "_gen", "entrypoint.ts");
 					const cmd = await new Deno.Command("deno", {
 						args: [
 							"run",
 							...args,
-							resolve(project.path, "_gen", "entrypoint.ts"),
+							entrypointPath,
 						],
 						stdout: "inherit",
 						stderr: "inherit",
 					})
 						.output();
-					if (!cmd.success) throw new Error("Entrypoint failed");
+					if (!cmd.success) throw new InternalError("Entrypoint failed", { path: entrypointPath });
 				},
 			});
 		},
