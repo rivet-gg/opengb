@@ -13,6 +13,7 @@ export async function planModuleBuild(
 	opts: BuildOpts,
 ) {
 	buildStep(buildState, {
+		id: `module.${module.name}.parse`,
 		name: "Parse",
 		description: `config.ts`,
 		module,
@@ -45,6 +46,7 @@ export async function planModuleBuild(
 	});
 
 	buildStep(buildState, {
+		id: `module.${module.name}.generate.registry`,
 		name: "Generate",
 		description: `_gen/registry.d.ts`,
 		module,
@@ -57,6 +59,7 @@ export async function planModuleBuild(
 	});
 
 	buildStep(buildState, {
+		id: `module.${module.name}.generate.mod`,
 		name: "Generate",
 		description: `_gen/mod.ts`,
 		module,
@@ -69,6 +72,7 @@ export async function planModuleBuild(
 	});
 
 	buildStep(buildState, {
+		id: `module.${module.name}.generate.test`,
 		name: "Generate",
 		description: `_gen/test.ts`,
 		module,

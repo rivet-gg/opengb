@@ -1,30 +1,25 @@
 import { exists, resolve, tjs } from "../deps.ts";
+import { UnreachableError } from "../error/mod.ts";
 import { Project } from "../project/project.ts";
 import { verbose } from "../term/status.ts";
 import { crypto, encodeHex } from "./deps.ts";
 
 // TODO: Replace this with the OpenGB version instead since it means we'll change . We need to compile this in the build artifacts.
-export const CACHE_VERSION = 4;
+export const CACHE_VERSION = 5;
 
 export interface Cache {
 	persist: CachePersist;
 
 	/**
-	 * Files that have been compared in this process.
-	 */
-	fileDiffs: Map<string, boolean>;
-
-	/**
 	 * Expressions that have been compared in this process.
 	 */
-	exprDiffs: Map<string, boolean>;
+	hashDiffs: Map<string, boolean>;
 }
 
 /** Cache data that gets persisted to disk. */
 export interface CachePersist {
 	version: number;
-	fileHashes: Record<string, FileHash>;
-	exprHashes: Record<string, string>;
+	hashes: Record<string, string>;
 	moduleConfigSchemas: Record<string, tjs.Definition>;
 	scriptSchemas: Record<
 		string,
@@ -37,8 +32,6 @@ export interface CacheScriptSchema {
 	response: tjs.Definition;
 }
 
-export type FileHash = { hash: string } | { missing: true };
-
 export async function loadCache(project: Project): Promise<Cache> {
 	const buildCachePath = resolve(project.path, "_gen", "cache.json");
 
@@ -46,8 +39,9 @@ export async function loadCache(project: Project): Promise<Cache> {
 	let persist: CachePersist;
 	if (await exists(buildCachePath)) {
 		try {
-			// Try to parse the old cache
-			const oldCacheAny: any = JSON.parse(await Deno.readTextFile(buildCachePath));
+			const oldCacheAny: any = JSON.parse(
+				await Deno.readTextFile(buildCachePath),
+			);
 
 			// Validate version
 			if (oldCacheAny.version == CACHE_VERSION) {
@@ -65,8 +59,7 @@ export async function loadCache(project: Project): Promise<Cache> {
 
 	return {
 		persist,
-		fileDiffs: new Map(),
-		exprDiffs: new Map(),
+		hashDiffs: new Map(),
 	};
 }
 
@@ -83,8 +76,7 @@ export async function writeCache(project: Project, cache: Cache) {
 function createEmptyCachePersist(): CachePersist {
 	return {
 		version: CACHE_VERSION,
-		fileHashes: {},
-		exprHashes: {},
+		hashes: {},
 		moduleConfigSchemas: {},
 		scriptSchemas: {},
 	};
@@ -95,122 +87,97 @@ function createEmptyCachePersist(): CachePersist {
  */
 export async function compareFileHash(
 	cache: Cache,
+	stepId: string,
 	paths: string[],
 ): Promise<boolean> {
-	// We hash all files regardless of if we already know there was a change so
-	// we can re-use these hashes on the next run to see if anything changed.
-	// Otherwise, this would return a false positive for future runs if multiple
-	// files were changed in one run.
-	let hasChanged = false;
-	for (const path of paths) {
-		// Check if already diffed this process
-		const diff = cache.fileDiffs.get(path);
-		if (diff !== undefined) {
-			if (diff) hasChanged = true;
-			continue;
-		}
-
-		// Compre hash
-		let fileChanged = false;
-		const oldHash = cache.persist.fileHashes[path];
-		const newHash = await hashFile(cache, path);
-		if (!oldHash) {
-			fileChanged = true;
-			verbose("Created", path);
-		} else if ("missing" in oldHash && "missing" in newHash) {
-			// Do nothing
-		} else if ("hash" in oldHash && "hash" in newHash) {
-			if (oldHash.hash != newHash.hash) {
-				fileChanged = true;
-				verbose("Edited", path);
+	const files: Record<string, HashValue> = {};
+	await Promise.all(
+		paths.map(async (path) => {
+			const key = `file:${path}`;
+			if (await exists(path, { isFile: true })) {
+				files[key] = await Deno.open(path, { read: true });
+			} else {
+				files[key] = null;
 			}
-		} else {
-			fileChanged = true;
-			if ("missing" in oldHash) verbose("Created", path);
-			else verbose("Removed", path);
-		}
-		if (fileChanged) hasChanged = true;
+		}),
+	);
 
-		// Cache diff so we don't have to rehash the file
-		cache.fileDiffs.set(path, fileChanged);
-	}
-
-	return hasChanged;
+	return await compareHash(cache, stepId, files);
 }
 
-export async function hashFile(
-	cache: Cache,
-	path: string,
-): Promise<FileHash> {
-	let hash: FileHash;
-	if (await exists(path)) {
-		// Calculate hash
-		const file = await Deno.open(path, { read: true });
-		const fileHashBuffer = await crypto.subtle.digest(
-			"SHA-256",
-			file.readable,
-		);
-		hash = { hash: encodeHex(fileHashBuffer) };
-	} else {
-		// Specify missing
-		hash = { missing: true };
-	}
-
-	cache.persist.fileHashes[path] = hash;
-
-	return hash;
-}
+export type HashValue = Deno.FsFile | string | number | boolean | null;
 
 /**
  * Checks if the hash of an expression has changed. Returns true if expression changed.
  */
-export async function compareExprHash(
+export async function compareHash(
 	cache: Cache,
-	exprs: Record<string, string>,
+	stepId: string,
+	values: Record<string, HashValue>,
 ): Promise<boolean> {
-	// We hash all files regardless of if we already know there was a change so
+	// We hash all values regardless of if we already know there was a change so
 	// we can re-use these hashes on the next run to see if anything changed.
 	// Otherwise, this would return a false positive for future runs if multiple
 	// files were changed in one run.
 	let hasChanged = false;
-	for (const [name, value] of Object.entries(exprs)) {
+	for (const [localName, value] of Object.entries(values)) {
+		const name = `${stepId}:${localName}`;
+
 		// Check if already diffed this process
-		const diff = cache.exprDiffs.get(name);
+		const diff = cache.hashDiffs.get(name);
 		if (diff !== undefined) {
 			if (diff) hasChanged = true;
 			continue;
 		}
 
 		// Compare hash
-		let exprChanged = false;
-		const oldHash = cache.persist.exprHashes[name];
-		const newHash = await hashExpr(cache, name, value);
+		let valueChanged = false;
+		const oldHash = cache.persist.hashes[name];
+		const newHash = await hashValue(cache, name, value);
 		if (newHash != oldHash) {
-			exprChanged = true;
+			valueChanged = true;
 
 			verbose("Changed", name);
 		}
-		if (exprChanged) hasChanged = true;
+		if (valueChanged) hasChanged = true;
 
 		// Cache diff so we don't have to rehash the expr
-		cache.exprDiffs.set(name, exprChanged);
+		cache.hashDiffs.set(name, valueChanged);
 	}
 
 	return hasChanged;
 }
 
-export async function hashExpr(
+export async function hashValue(
 	cache: Cache,
 	name: string,
-	value: any,
+	value: HashValue,
 ): Promise<string> {
+	if (value === null) return "null";
+
 	// Calculate hash
-	const exprHashBuffer = await crypto.subtle.digest(
-		"SHA-256",
-		await new Blob([value]).arrayBuffer(),
-	);
-	const hash = encodeHex(exprHashBuffer);
-	cache.persist.exprHashes[name] = hash;
+	let hash;
+	if (value === null) {
+		hash = "null";
+	} else {
+		let digest;
+		if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+			digest = await crypto.subtle.digest(
+				"SHA-256",
+				await new Blob([value.toString()]).arrayBuffer(),
+			);
+		} else if (value instanceof Deno.FsFile) {
+			digest = await crypto.subtle.digest(
+				"SHA-256",
+				value.readable,
+			);
+		} else {
+			throw new UnreachableError(value);
+		}
+		hash = encodeHex(digest);
+	}
+
+	cache.persist.hashes[name] = hash;
 
 	return hash;
 }

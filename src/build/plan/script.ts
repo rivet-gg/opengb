@@ -13,6 +13,7 @@ export async function planScriptBuild(
 	opts: BuildOpts,
 ) {
 	buildStep(buildState, {
+		id: `module.${module.name}.script.${script.name}.parse`,
 		name: "Parse",
 		description: `${script.name}.ts`,
 		module,
@@ -23,8 +24,9 @@ export async function planScriptBuild(
 			expressions: {
 				strictSchemas: opts.strictSchemas,
 
+				// TODO: JSON.stringify is not deterministic nor fast
 				// If a script is added, removed, or the config is changed
-				moduleScripts: module.scripts,
+				moduleScripts: JSON.stringify(module.scripts),
 			},
 		},
 		delayedStart: true,
@@ -57,6 +59,7 @@ export async function planScriptBuild(
 	});
 
 	buildStep(buildState, {
+		id: `module.${module.name}.script.${script.name}.generate`,
 		name: "Generate",
 		description: `_gen/scripts/${script.name}.ts`,
 		module,
