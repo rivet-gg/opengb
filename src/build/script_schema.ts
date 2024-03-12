@@ -7,13 +7,43 @@ const WORKER_POOL = createWorkerPool<WorkerRequest, WorkerResponse>({
 	source: import.meta.resolve("./script_schema.worker.ts"),
 });
 
+export interface CompileScriptSchemaOpts {
+	strictSchemas: boolean;
+	onStart: () => void;
+}
+
 export async function compileScriptSchema(
 	_project: Project,
 	_module: Module,
 	script: Script,
-	onStart: () => void,
+	opts: CompileScriptSchemaOpts,
 ): Promise<void> {
-	const res = await runJob({ pool: WORKER_POOL, request: { script }, onStart });
-	script.requestSchema = res.requestSchema;
-	script.responseSchema = res.responseSchema;
+	if (opts.strictSchemas) {
+		// Parse schema
+		const res = await runJob({ pool: WORKER_POOL, request: { script }, onStart: opts.onStart });
+		script.requestSchema = res.requestSchema;
+		script.responseSchema = res.responseSchema;
+	} else {
+		opts.onStart();
+
+		// No schema
+		script.requestSchema = {
+			"$schema": "http://json-schema.org/draft-07/schema#",
+			"$ref": "#/definitions/Request",
+			"definitions": {
+				"Request": {
+					"type": "object",
+				},
+			},
+		};
+		script.responseSchema = {
+			"$schema": "http://json-schema.org/draft-07/schema#",
+			"$ref": "#/definitions/Response",
+			"definitions": {
+				"Request": {
+					"type": "object",
+				},
+			},
+		};
+	}
 }

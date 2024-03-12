@@ -41,6 +41,7 @@ Deno.test({
 			dbDriver: DbDriver.NodePostgres,
 			autoMigrate: false,
 			skipDenoCheck: false,
+			strictSchemas: true,
 		});
 	},
 });

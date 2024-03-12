@@ -4,11 +4,13 @@ import { configPath, Module, Project } from "../../project/mod.ts";
 import { compileModuleHelper, compileModuleTypeHelper, compileTestHelper } from "../gen.ts";
 import { compileModuleConfigSchema } from "../module_config_schema.ts";
 import { planScriptBuild } from "./script.ts";
+import { BuildOpts } from "../mod.ts";
 
 export async function planModuleBuild(
 	buildState: BuildState,
 	project: Project,
 	module: Module,
+	opts: BuildOpts,
 ) {
 	buildStep(buildState, {
 		name: "Parse",
@@ -16,14 +18,17 @@ export async function planModuleBuild(
 		module,
 		condition: {
 			// TODO: use tjs.getProgramFiles() to get the dependent files?
-			files: [configPath(module)],
+			files: opts.strictSchemas ? [configPath(module)] : [],
+			expressions: {
+				strictSchemas: opts.strictSchemas,
+			},
 		},
 		delayedStart: true,
 		async build({ onStart }) {
 			// Compile schema
 			//
 			// This mutates `module`
-			await compileModuleConfigSchema(project, module, onStart);
+			await compileModuleConfigSchema(project, module, { strictSchemas: opts.strictSchemas, onStart });
 		},
 		async alreadyCached() {
 			// Read schema from cache
@@ -76,6 +81,6 @@ export async function planModuleBuild(
 	});
 
 	for (const script of module.scripts.values()) {
-		await planScriptBuild(buildState, project, module, script);
+		await planScriptBuild(buildState, project, module, script, opts);
 	}
 }

@@ -56,7 +56,7 @@ export async function planProjectBuild(
 	await waitForBuildPromises(buildState);
 
 	for (const module of project.modules.values()) {
-		await planModuleBuild(buildState, project, module);
+		await planModuleBuild(buildState, project, module, opts);
 	}
 
 	buildStep(buildState, {
@@ -221,6 +221,7 @@ export async function planProjectBuild(
 			const migrations = await glob.glob(resolve(module.path, "db", "migrations", "*", "*.sql"));
 			buildStep(buildState, {
 				name: "Migrate Database",
+				module,
 				description: "deploy",
 				condition: {
 					files: migrations,
@@ -240,6 +241,7 @@ export async function planProjectBuild(
 			const migrations = await glob.glob(resolve(module.path, "db", "migrations", "*", "*.sql"));
 			buildStep(buildState, {
 				name: "Migrate Database",
+				module,
 				description: "develop",
 				condition: {
 					files: [resolve(module.path, "db", "schema.prisma"), ...migrations],

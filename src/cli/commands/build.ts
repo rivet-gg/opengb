@@ -66,6 +66,11 @@ export const buildCommand = new Command<GlobalOpts>()
 		"Automatically migrate the database",
 		{ default: false },
 	)
+	.option(
+		"--no-strict-schemas",
+		"Disable strict schema validation",
+		{ default: false },
+	)
 	.action(async (opts) => {
 		const project = await initProject(opts);
 
@@ -107,6 +112,7 @@ export const buildCommand = new Command<GlobalOpts>()
 					runtime: opts.runtime,
 					dbDriver: opts.dbDriver!,
 					autoMigrate: opts.autoMigrate,
+					strictSchemas: opts.strictSchemas,
 					skipDenoCheck: false,
 					signal,
 				});

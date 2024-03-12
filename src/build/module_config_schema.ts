@@ -11,17 +11,39 @@ const WORKER_POOL = createWorkerPool<WorkerRequest, WorkerResponse>({
 	source: import.meta.resolve("./module_config_schema.worker.ts"),
 });
 
+export interface CompileModuleConfigSchemaOpts {
+	strictSchemas: boolean;
+	onStart: () => void;
+}
+
 export async function compileModuleConfigSchema(
 	_project: Project,
 	module: Module,
-	onStart: () => void,
+	opts: CompileModuleConfigSchemaOpts,
 ): Promise<void> {
 	// Read schema
 	if (await hasUserConfigSchema(module)) {
-		// Load config
-		const res = await runJob({ pool: WORKER_POOL, request: { module }, onStart });
-		module.userConfigSchema = res.moduleConfigSchema;
+		if (opts.strictSchemas) {
+			// Parse schema
+			const res = await runJob({ pool: WORKER_POOL, request: { module }, onStart: opts.onStart });
+			module.userConfigSchema = res.moduleConfigSchema;
+		} else {
+			opts.onStart();
+
+			// No schema
+			module.userConfigSchema = {
+				"$schema": "http://json-schema.org/draft-07/schema#",
+				"$ref": "#/definitions/Config",
+				"definitions": {
+					"Config": {
+						"type": "object",
+					},
+				},
+			};
+		}
 	} else {
+		opts.onStart();
+
 		// No config
 		module.userConfigSchema = {
 			"$schema": "http://json-schema.org/draft-07/schema#",

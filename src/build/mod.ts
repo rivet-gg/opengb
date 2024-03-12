@@ -36,6 +36,7 @@ export interface BuildOpts {
 	runtime: Runtime;
 	dbDriver: DbDriver;
 	autoMigrate: boolean;
+	strictSchemas: boolean;
 	skipDenoCheck: boolean;
 	signal?: AbortSignal;
 }

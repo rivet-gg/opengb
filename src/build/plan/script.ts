@@ -2,6 +2,7 @@ import { BuildState, buildStep } from "../../build_state/mod.ts";
 import { assertExists, resolve } from "../../deps.ts";
 import { Module, Project, Script } from "../../project/mod.ts";
 import { compileScriptHelper } from "../gen.ts";
+import { BuildOpts } from "../mod.ts";
 import { compileScriptSchema } from "../script_schema.ts";
 
 export async function planScriptBuild(
@@ -9,6 +10,7 @@ export async function planScriptBuild(
 	project: Project,
 	module: Module,
 	script: Script,
+	opts: BuildOpts,
 ) {
 	buildStep(buildState, {
 		name: "Parse",
@@ -16,12 +18,11 @@ export async function planScriptBuild(
 		module,
 		script,
 		condition: {
-			// TODO: This module and all of its dependent scripts. Use tjs.getProgramFiles() to get the dependent files?
-			files: [
-				// If the script is modified
-				script.path,
-			],
+			// TODO: use tjs.getProgramFiles() to get the dependent files?
+			files: opts.strictSchemas ? [script.path] : [],
 			expressions: {
+				strictSchemas: opts.strictSchemas,
+
 				// If a script is added, removed, or the config is changed
 				"module.scripts": module.scripts,
 			},
@@ -31,7 +32,7 @@ export async function planScriptBuild(
 			// Compile schema
 			//
 			// This mutates `script`
-			await compileScriptSchema(project, module, script, onStart);
+			await compileScriptSchema(project, module, script, { strictSchemas: opts.strictSchemas, onStart });
 		},
 		async alreadyCached() {
 			// Read schemas from cache
