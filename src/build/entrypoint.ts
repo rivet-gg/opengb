@@ -4,6 +4,7 @@ import { genRegistryMapPath, genRuntimeModPath, genRuntimePath } from "../projec
 import { CommandError } from "../error/mod.ts";
 import { autoGenHeader } from "./misc.ts";
 import { BuildOpts, DbDriver, Runtime } from "./mod.ts";
+import { dedent } from "./deps.ts";
 
 export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	const runtimeModPath = genRuntimeModPath(project);
@@ -73,10 +74,13 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	} else if (opts.runtime == Runtime.Cloudflare) {
 		const runtimePath = genRuntimePath(project);
 		const serverTsPath = resolve(runtimePath, "src", "runtime", "server.ts");
+		const errorTsPath = resolve(runtimePath, "src", "runtime", "error.ts");
 
 		entrypointSource = `
 			${autoGenHeader()}
+			import type { IncomingRequestCf } from 'https://raw.githubusercontent.com/skymethod/denoflare/v0.6.0/common/cloudflare_workers_types.d.ts';
 			import { Runtime } from "${runtimeModPath}";
+			import { RuntimeError } from "${errorTsPath}";
 			import { camelToSnake } from "${registryMapPath}";
 			import type { Registry, RegistryCamel } from "./registry.d.ts";
 			import config from "./runtime_config.ts";
@@ -86,21 +90,22 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			const SERVER_HANDLER = serverHandler(RUNTIME);
 
 			export default {
-				async fetch(req, env) {
-					// Deno env polyfill
-					globalThis.Deno = {
-						env: {
-							get(name) {
-								return env.hasOwnProperty(name) ? env[name] : undefined;
-							}
-						}
-					};
+				async fetch(req: IncomingRequestCf, env: { [k: string]: unknown; }) {
+					${denoEnvPolyfill()}
+
+					const ip = req.headers.get("CF-Connecting-IP") ?? req.headers.get("X-Real-Ip");
+					if(!ip) {
+						throw new RuntimeError(
+							"CANNOT_READ_IP",
+							{ cause: "Could not get IP of incoming request" },
+						);
+					}
 
 					return await SERVER_HANDLER(req, {
 						remoteAddr: {
-							transport: "", // TODO:
-							hostname: req.headers.get("CF-Connecting-IP"),
-							port: 0, // TODO:
+							transport: "" as any,
+							hostname: ip,
+							port: 0,
 						}
 					});
 				}
@@ -212,4 +217,36 @@ function generateDbDriver(opts: BuildOpts, prismaImportName: string) {
 	}
 
 	return dbDriver;
+}
+
+function denoEnvPolyfill() {
+	// Deno env polyfill
+	return dedent`
+		globalThis.Deno = {
+			env: {
+				get(name: string): unknown | undefined {
+					return env.hasOwnProperty(name) ? env[name] : undefined;
+				},
+				set() {
+					throw new RuntimeError("UNIMPLEMENTED", {
+						cause: "Deno.env.set is unimplemented in Cloudflare Workers"
+					});
+				},
+				delete() {
+					throw new RuntimeError("UNIMPLEMENTED", {
+						cause: "Deno.env.delete is unimplemented in Cloudflare Workers"
+					});
+				},
+				has(name: string): boolean {
+					return env.hasOwnProperty(name);
+				},
+				toObject(): { [k:string]: string; } {
+					return Object.fromEntries(
+						Object.entries(env as { [k: string]: string; })
+							.filter(([k, v]) => typeof v === 'string')
+						);
+				}
+			}
+		} as any;
+	`;
 }

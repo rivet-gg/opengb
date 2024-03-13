@@ -49,7 +49,7 @@ export class Context<RegistryT, RegistryCamelT> {
 					script: { module: moduleName, script: scriptName },
 				}),
 				moduleName,
-				this.runtime.postgres.getOrCreatePool(moduleName, module)?.prisma,
+				this.runtime.postgres.getOrCreatePool(module)?.prisma,
 				scriptName,
 				this.camelMap,
 			);

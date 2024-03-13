@@ -6,6 +6,7 @@ import { verbose } from "../term/status.ts";
 import { ensurePostgresRunning } from "../utils/postgres_daemon.ts";
 import { createOnce, Once } from "../utils/once.ts";
 import { getOrInitOnce } from "../utils/once.ts";
+import { getDatabaseUrl, getDefaultDatabaseUrl } from "../utils/db.ts";
 
 export type ForEachDatabaseCallback = (
 	opts: { databaseUrl: string; module: Module; db: ModuleDatabase },
@@ -25,14 +26,9 @@ interface DbState {
 	createdDatabases: Set<string>;
 }
 
-function getDefaultDatabaseUrl(_project: Project) {
-	return Deno.env.get("DATABASE_URL") ??
-		"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable";
-}
-
-async function getDefaultClient(project: Project) {
+async function getDefaultClient(_project: Project) {
 	return await getOrInitOnce(DB_STATE.defaultClientOnce, async () => {
-		const client = new PostgresClient(getDefaultDatabaseUrl(project));
+		const client = new PostgresClient(getDefaultDatabaseUrl());
 		await client.connect();
 
 		addShutdownHandler(async () => {
@@ -63,10 +59,6 @@ export async function forEachDatabase(
 
 	await ensurePostgresRunning(project);
 
-	// Setup database
-	const defaultDatabaseUrl = Deno.env.get("DATABASE_URL") ??
-		"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable";
-
 	const defaultClient = await getDefaultClient(project);
 
 	for (const mod of modules) {
@@ -77,10 +69,7 @@ export async function forEachDatabase(
 		// Create database
 		await createDatabase(defaultClient, mod.db);
 
-		// Build URL
-		const urlParsed = new URL(defaultDatabaseUrl);
-		urlParsed.pathname = `/${mod.db.name}`;
-		const databaseUrl = urlParsed.toString();
+		const databaseUrl = getDatabaseUrl(mod.db.name).toString();
 
 		// Callback
 		await callback({ databaseUrl, module: mod, db: mod.db });

@@ -6,7 +6,7 @@ import { Project } from "../../project/mod.ts";
 
 export const buildCommand = new Command<GlobalOpts>()
 	.description("Build the project")
-	.option("--watch", "Automatically rebuid on changes", { default: false })
+	.option("--watch", "Automatically rebuild on changes", { default: false })
 	.option(
 		"-r, --runtime <runtime:string>",
 		"Set target runtime (deno, cloudflare)",

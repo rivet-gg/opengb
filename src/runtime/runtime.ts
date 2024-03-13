@@ -106,7 +106,7 @@ export class Runtime<RegistryT, RegistryCamelT> {
 						test: { module: moduleName, name: testName },
 					}),
 					moduleName,
-					runtime.postgres.getOrCreatePool(moduleName, module)?.prisma,
+					runtime.postgres.getOrCreatePool(module)?.prisma,
 					map,
 				);
 

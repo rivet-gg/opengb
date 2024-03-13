@@ -13,6 +13,7 @@ const rootSrc = resolve(dirname, "..", "..");
 const files = await glob.glob([
 	"src/{runtime,types}/*.ts",
 	"src/deps.ts",
+	"src/utils/db.ts",
 ], { cwd: rootSrc });
 
 const archiveFiles: Record<string, string> = {};

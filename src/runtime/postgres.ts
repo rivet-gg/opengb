@@ -1,7 +1,6 @@
 import { QueryClient, Transaction } from "./deps.ts";
 import { Module } from "./runtime.ts";
-
-const DEFAULT_DATABASE_URL = "postgres://postgres:postgres@localhost:5432/postgres";
+import { getDatabaseUrl } from "../utils/db.ts";
 
 type PostgresRunScope<T> = (conn: QueryClient) => Promise<T>;
 type PostgresTransactionScope<T> = (conn: Transaction) => Promise<T>;
@@ -29,23 +28,14 @@ export class Postgres {
 		}
 	}
 
-	public getOrCreatePool(moduleName: string, module: Module): Pool | undefined {
+	public getOrCreatePool(module: Module): Pool | undefined {
 		if (!module.db) return undefined;
 		if (this.isShutDown) throw new Error("Postgres is shutting down");
 
 		if (this.pools.has(module.db.name)) {
 			return this.pools.get(module.db.name)!;
 		} else {
-			const moduleDbUrl = Deno.env.get(`DATABASE_URL_${moduleName}__${module.db.name}`);
-			let url;
-
-			if (moduleDbUrl) {
-				url = new URL(moduleDbUrl);
-			} else {
-				// Build URL for this database
-				url = new URL(Deno.env.get("DATABASE_URL") ?? DEFAULT_DATABASE_URL);
-				url.pathname = "/" + module.db.name;
-			}
+			const url = getDatabaseUrl(module.db.name);
 
 			// Create & insert pool
 			const output = module.db.createPrisma(url.toString());

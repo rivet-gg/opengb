@@ -2,8 +2,8 @@ import { BuildState, buildStep } from "../../build_state/mod.ts";
 import { assertExists, resolve } from "../../deps.ts";
 import { Module, Project, Script } from "../../project/mod.ts";
 import { compileScriptHelper } from "../gen.ts";
-import { BuildOpts } from "../mod.ts";
 import { compileScriptSchema } from "../script_schema.ts";
+import { BuildOpts } from "../mod.ts";
 
 export async function planScriptBuild(
 	buildState: BuildState,
@@ -19,8 +19,11 @@ export async function planScriptBuild(
 		module,
 		script,
 		condition: {
-			// TODO: use tjs.getProgramFiles() to get the dependent files?
-			files: opts.strictSchemas ? [script.path] : [],
+			// TODO: This module and all of its dependent scripts. Use tjs.getProgramFiles() to get the dependent files?
+			files: [
+				// If the script is modified
+				script.path,
+			],
 			expressions: {
 				strictSchemas: opts.strictSchemas,
 			},
