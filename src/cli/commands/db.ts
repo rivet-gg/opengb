@@ -10,7 +10,9 @@ import { Project } from "../../project/mod.ts";
 export const dbCommand = new Command<GlobalOpts>()
 	.description("Database commands");
 
-dbCommand.action(() => dbCommand.showHelp());
+dbCommand
+	.globalOption("--env <environment:string>", "Managed OpenGB environment used by the Rivet CLI")
+	.action(() => dbCommand.showHelp());
 
 dbCommand
 	.command("dev")
