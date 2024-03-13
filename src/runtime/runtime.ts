@@ -5,7 +5,7 @@ import { Postgres, PrismaClientDummy } from "./postgres.ts";
 import { serverHandler } from "./server.ts";
 import { TraceEntryType } from "./trace.ts";
 import { newTrace } from "./trace.ts";
-import { MapFrom } from "./proxy.ts";
+import { RegistryPathLookup } from "./proxy.ts";
 
 export interface Config {
 	modules: Record<string, Module>;
@@ -51,7 +51,7 @@ export class Runtime<RegistryT, RegistryCamelT> {
 
 	public ajv: Ajv.default;
 
-	public constructor(public config: Config, private camelMap: MapFrom<RegistryCamelT, RegistryT>) {
+	public constructor(public config: Config, private lookupSnakeByCamel: RegistryPathLookup<RegistryCamelT, RegistryT>) {
 		this.postgres = new Postgres();
 
 		this.ajv = new Ajv.default({
@@ -66,7 +66,7 @@ export class Runtime<RegistryT, RegistryCamelT> {
 	}
 
 	public createRootContext(traceEntryType: TraceEntryType): Context<RegistryT, RegistryCamelT> {
-		return new Context(this, newTrace(traceEntryType), this.camelMap);
+		return new Context(this, newTrace(traceEntryType), this.lookupSnakeByCamel);
 	}
 
 	/**
@@ -86,7 +86,7 @@ export class Runtime<RegistryT, RegistryCamelT> {
 		moduleName: string,
 		testName: string,
 		fn: (ctx: TestContext<RegistryT, RegistryCamelT, UserConfigT, any>) => Promise<void>,
-		map: MapFrom<RegistryCamelT, RegistryT>,
+		map: RegistryPathLookup<RegistryCamelT, RegistryT>,
 	) {
 		Deno.test({
 			name: testName,

@@ -2,14 +2,14 @@ import { Runtime } from "./runtime.ts";
 import { Trace } from "./trace.ts";
 import { RuntimeError } from "./error.ts";
 import { appendTraceEntry } from "./trace.ts";
-import { buildRegistryProxy, MapFrom } from "./proxy.ts";
+import { buildRegistryProxy, RegistryPathLookup } from "./proxy.ts";
 import { RegistryCallFn } from "../types/registry.ts";
 
 export class Context<RegistryT, RegistryCamelT> {
 	public constructor(
 		protected readonly runtime: Runtime<RegistryT, RegistryCamelT>,
 		public readonly trace: Trace,
-		private readonly camelMap: MapFrom<RegistryCamelT, RegistryT>,
+		private readonly lookupSnakeByCamel: RegistryPathLookup<RegistryCamelT, RegistryT>,
 	) {}
 
 	protected isAllowedModuleName(_moduleName: string): boolean {
@@ -51,7 +51,7 @@ export class Context<RegistryT, RegistryCamelT> {
 				moduleName,
 				this.runtime.postgres.getOrCreatePool(moduleName, module)?.prisma,
 				scriptName,
-				this.camelMap,
+				this.lookupSnakeByCamel,
 			);
 
 			// TODO: Replace with OGBE-15
@@ -93,7 +93,7 @@ export class Context<RegistryT, RegistryCamelT> {
 	public get modules() {
 		return buildRegistryProxy<RegistryT, RegistryCamelT>(
 			this,
-			this.camelMap,
+			this.lookupSnakeByCamel,
 		);
 	}
 
@@ -163,9 +163,9 @@ export class ModuleContext<RegistryT, RegistryCamelT, UserConfigT, DatabaseT>
 		trace: Trace,
 		public readonly moduleName: string,
 		public readonly db: DatabaseT,
-		camelMap: MapFrom<RegistryCamelT, RegistryT>,
+		lookupSnakeByCamel: RegistryPathLookup<RegistryCamelT, RegistryT>,
 	) {
-		super(runtime, trace, camelMap);
+		super(runtime, trace, lookupSnakeByCamel);
 	}
 
 	protected isAllowedModuleName(targetModuleName: string): boolean {
@@ -191,9 +191,9 @@ export class ScriptContext<RegistryT, RegistryCamelT, UserConfigT, DatabaseT>
 		moduleName: string,
 		db: DatabaseT,
 		public readonly scriptName: string,
-		camelMap: MapFrom<RegistryCamelT, RegistryT>,
+		lookupSnakeByCamel: RegistryPathLookup<RegistryCamelT, RegistryT>,
 	) {
-		super(runtime, trace, moduleName, db, camelMap);
+		super(runtime, trace, moduleName, db, lookupSnakeByCamel);
 	}
 }
 

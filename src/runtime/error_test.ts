@@ -8,7 +8,7 @@ type ErrReg = { test_module: Record<string, never> };
 type ErrRegCamel = { testModule: Record<string, never> };
 
 Deno.test("error", async () => {
-	const camelMap = {
+	const camelToSnakeLookup = {
 		testModule: {},
 	} as const;
 	// Setup
@@ -23,13 +23,13 @@ Deno.test("error", async () => {
 				userConfig: null,
 			},
 		},
-	}, camelMap);
+	}, camelToSnakeLookup);
 	const moduleContext = new ModuleContext<ErrReg, ErrRegCamel, null, undefined>(
 		runtime,
 		newTrace({ internalTest: {} }),
 		"test_module",
 		undefined,
-		camelMap,
+		camelToSnakeLookup,
 	);
 
 	// Create error

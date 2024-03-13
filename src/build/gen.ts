@@ -7,6 +7,17 @@ import { camelify, pascalify } from "../types/case_conversions.ts";
 import { genRegistryMapPath } from "../project/project.ts";
 import { hasUserConfigSchema } from "../project/module.ts";
 
+async function writeAndFmt(path: string, source: string) {
+	await Deno.writeTextFile(path, source);
+	const fmtResult = await new Deno.Command("deno", {
+		args: ["fmt", path],
+	}).output();
+
+	if (!fmtResult.success) {
+		throw new Error(`Failed to format generated file at ${path}`);
+	}
+}
+
 export async function compileModuleHelper(
 	project: Project,
 	module: Module,
@@ -51,7 +62,7 @@ export async function compileModuleHelper(
 
 	// Write source
 	await Deno.mkdir(dirname(helperPath), { recursive: true });
-	await Deno.writeTextFile(helperPath, source);
+	await writeAndFmt(helperPath, source);
 }
 
 export async function compileTestHelper(
@@ -92,7 +103,7 @@ export async function compileTestHelper(
 
 	// Write source
 	await Deno.mkdir(dirname(helperPath), { recursive: true });
-	await Deno.writeTextFile(helperPath, source);
+	await writeAndFmt(helperPath, source);
 }
 
 export async function compileScriptHelper(
@@ -124,7 +135,7 @@ export async function compileScriptHelper(
 
 	// Write source
 	await Deno.mkdir(dirname(helperPath), { recursive: true });
-	await Deno.writeTextFile(helperPath, source);
+	await writeAndFmt(helperPath, source);
 }
 
 export async function compileTypeHelpers(project: Project) {
@@ -174,7 +185,7 @@ export async function compileTypeHelpers(project: Project) {
 					Request as ${requestTypeName},
 					Response as ${responseTypeName},
 				} from ${JSON.stringify(importPath)};
-			`;
+			` + "\n\n";
 
 			scriptSnakeInterfaceSource += dedent`
 				${scriptNameSnake}: {
@@ -189,7 +200,12 @@ export async function compileTypeHelpers(project: Project) {
 				};
 			`;
 
-			moduleRegistryMap += `${scriptNameCamel}: ["${moduleNameSnake}", "${scriptNameSnake}"],\n`;
+			moduleRegistryMap += dedent`
+				${scriptNameCamel}: {
+					module: "${moduleNameSnake}",
+					script: "${scriptNameSnake}",
+				},
+			`;
 		}
 
 		const moduleInterfaceNameSnake = `${moduleNamePascal}_Module`;
@@ -208,7 +224,7 @@ export async function compileTypeHelpers(project: Project) {
 			interface ${moduleInterfaceNameCamel} {
 				${scriptCamelInterfaceSource}
 			}
-		`;
+		` + "\n\n\n";
 
 		moduleSnakeRegistrySource += `${moduleNameSnake}: ${moduleInterfaceNameSnake};`;
 		moduleCamelRegistrySource += `${moduleNameCamel}: ${moduleInterfaceNameCamel};`;
@@ -253,8 +269,8 @@ export async function compileTypeHelpers(project: Project) {
 	`;
 
 	await Deno.mkdir(dirname(typedefPath), { recursive: true });
-	await Deno.writeTextFile(typedefPath, typedefSource);
-	await Deno.writeTextFile(typemapPath, camelLookupSource);
+	await writeAndFmt(typedefPath, typedefSource);
+	await writeAndFmt(typemapPath, camelLookupSource);
 }
 
 export async function compileModuleTypeHelper(
