@@ -185,6 +185,6 @@ export async function waitForBuildPromises(buildState: BuildState): Promise<void
 
 	buildState.signal.throwIfAborted();
 
-	// Write cache
+	// Write cache if all succeeded
 	await writeBuildState(buildState);
 }

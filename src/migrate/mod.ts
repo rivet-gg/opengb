@@ -7,10 +7,6 @@ import { ensurePostgresRunning } from "../utils/postgres_daemon.ts";
 import { createOnce, Once } from "../utils/once.ts";
 import { getOrInitOnce } from "../utils/once.ts";
 
-export const NODE_IMAGE = "node:21-alpine";
-export const NODE_CONTAINER_NAME = "opengb-node";
-export const PRISMA_VERSION = "5.9.1";
-
 export type ForEachDatabaseCallback = (
 	opts: { databaseUrl: string; module: Module; db: ModuleDatabase },
 ) => Promise<void>;
