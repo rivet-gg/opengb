@@ -23,10 +23,6 @@ export async function planScriptBuild(
 			files: opts.strictSchemas ? [script.path] : [],
 			expressions: {
 				strictSchemas: opts.strictSchemas,
-
-				// TODO: JSON.stringify is not deterministic nor fast
-				// If a script is added, removed, or the config is changed
-				moduleScripts: JSON.stringify(module.scripts),
 			},
 		},
 		delayedStart: true,
@@ -67,6 +63,9 @@ export async function planScriptBuild(
 		condition: {
 			// TODO: check specifically scripts section of module config
 			files: [resolve(module.path, "module.yaml"), script.path],
+			expressions: {
+				db: !!module.config.db,
+			},
 		},
 		async build() {
 			await compileScriptHelper(project, module, script);

@@ -51,7 +51,7 @@ export async function planModuleBuild(
 		description: `_gen/registry.d.ts`,
 		module,
 		condition: {
-			files: [resolve(module.path, "module.yaml")],
+			files: [resolve(module.path, "module.yaml"), configPath(module)],
 		},
 		async build() {
 			await compileModuleTypeHelper(project, module);
@@ -64,7 +64,10 @@ export async function planModuleBuild(
 		description: `_gen/mod.ts`,
 		module,
 		condition: {
-			files: [resolve(module.path, "module.yaml")],
+			files: [resolve(module.path, "module.yaml"), configPath(module)],
+			expressions: {
+				db: !!module.db,
+			},
 		},
 		async build() {
 			await compileModuleHelper(project, module);
@@ -77,7 +80,10 @@ export async function planModuleBuild(
 		description: `_gen/test.ts`,
 		module,
 		condition: {
-			files: [resolve(module.path, "module.yaml")],
+			files: [resolve(module.path, "module.yaml"), configPath(module)],
+			expressions: {
+				db: !!module.db,
+			},
 		},
 		async build() {
 			await compileTestHelper(project, module);
