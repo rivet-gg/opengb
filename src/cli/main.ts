@@ -36,8 +36,7 @@ let exitCode = 0;
 try {
 	await command.parse();
 } catch (err) {
-	console.log(err, err.cmd);
-	if (err instanceof ValidationError && err.cmd) {
+	if (err.cmd) {
 		// Print Cliffy help
 		err.cmd.showHelp();
 		console.error(colors.red(`  ${colors.bold("error")}: ${err.message}\n`));
