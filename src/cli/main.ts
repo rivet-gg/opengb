@@ -1,4 +1,5 @@
 import { Command, CompletionsCommand, HelpCommand, ValidationError } from "./deps.ts";
+import { colors } from "../term/deps.ts";
 import { devCommand } from "./commands/dev.ts";
 import { buildCommand } from "./commands/build.ts";
 import { dbCommand } from "./commands/db.ts";
@@ -35,9 +36,11 @@ let exitCode = 0;
 try {
 	await command.parse();
 } catch (err) {
-	if (err instanceof ValidationError && err.cmd) {
+	if (err.cmd) {
 		// Print Cliffy help
 		err.cmd.showHelp();
+		console.error(colors.red(`  ${colors.bold("error")}: ${err.message}\n`));
+
 		exitCode = err.exitCode;
 	} else {
 		// Print error
