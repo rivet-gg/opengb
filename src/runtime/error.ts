@@ -29,11 +29,17 @@ export class RuntimeError extends Error {
 	 */
 	public errorConfig?: ErrorConfig;
 
+	/**
+	 * Additional metadata of the error.
+	 */
+	public meta?: ErrorConfig;
+
 	public constructor(
 		public readonly code: string,
 		options?: RuntimeErrorOptions,
 	) {
 		super(code, options);
+		this.meta = options?.meta;
 	}
 
 	/**
