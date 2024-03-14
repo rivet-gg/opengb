@@ -4,8 +4,15 @@ import { migrateDev } from "../../migrate/dev.ts";
 import { migrateStatus } from "../../migrate/status.ts";
 import { migrateDeploy } from "../../migrate/deploy.ts";
 import { migrateReset } from "../../migrate/reset.ts";
-import { UserError } from "../../error/mod.ts";
+import { CommandError, UserError } from "../../error/mod.ts";
 import { Project } from "../../project/mod.ts";
+import { verbose } from "../../term/status.ts";
+import { getDatabaseUrl } from "../../utils/db.ts";
+
+export const POSTGRES_IMAGE = "postgres:16.2-alpine3.19";
+// Unique container name for this runtime so we can run multiple instances in
+// parallel
+export const POSTGRES_CONTAINER_NAME = `opengb-postgres-${Deno.pid}`;
 
 export const dbCommand = new Command<GlobalOpts>()
 	.description("Database commands");
@@ -59,6 +66,60 @@ dbCommand
 		const project = await initProject(opts);
 		const modules = resolveModules(project, moduleNames);
 		await migrateDeploy(project, modules);
+	});
+
+dbCommand
+	.command("sh")
+	.arguments("<module>")
+	.action(async (opts, moduleName: string) => {
+		// Validate terminal
+		if (!Deno.stdin.isTerminal()) {
+			throw new UserError("Cannot run this command without a terminal.", {
+				suggest:
+					"This is likely because you're running from a non-interactive shell, such as a CI environment. Run this command in a terminal that supports TTY.",
+			});
+		}
+
+		const project = await initProject(opts);
+		const module = resolveModules(project, [moduleName])[0];
+
+		if (!module.db) throw new UserError(`Module does not have a database configured: ${name}`);
+
+		const dbUrl = getDatabaseUrl(module.db.name).toString();
+
+		// Start the container
+		verbose("Starting container", `${POSTGRES_CONTAINER_NAME} (${POSTGRES_IMAGE})`);
+		await new Deno.Command("docker", {
+			args: [
+				"run",
+				"-it",
+				"--rm",
+				`--name=${POSTGRES_CONTAINER_NAME}`,
+				"--add-host=host.docker.internal:host-gateway",
+				POSTGRES_IMAGE,
+				// ===
+				"psql",
+				dbUrl,
+			],
+			stdin: "inherit",
+			stdout: "inherit",
+			stderr: "inherit",
+		}).output();
+	});
+
+dbCommand
+	.command("url")
+	.arguments("<module>")
+	.action(async (opts, moduleName: string) => {
+		const project = await initProject(opts);
+		const module = resolveModules(project, [moduleName])[0];
+
+		if (!module.db) throw new UserError(`Module does not have a database configured: ${name}`);
+
+		const dbUrl = getDatabaseUrl(module.db.name).toString();
+
+		await Deno.stdout.write(new TextEncoder().encode(dbUrl));
+		console.error("");
 	});
 
 function resolveModules(project: Project, moduleNames: string[]) {

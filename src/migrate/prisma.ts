@@ -176,7 +176,7 @@ export async function runPrismaCommand(
 	if (opts.interactive && !Deno.stdin.isTerminal()) {
 		throw new UserError("Cannot run this command without a terminal.", {
 			suggest:
-				"This is likely because you're running from a non-interactive shell, such as a CI environment., Run this command in a terminal that supports TTY.",
+				"This is likely because you're running from a non-interactive shell, such as a CI environment. Run this command in a terminal that supports TTY.",
 		});
 	}
 
