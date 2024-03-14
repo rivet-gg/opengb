@@ -116,20 +116,6 @@ async function ensurePrismaWorkspaceInner(project: Project): Promise<void> {
 		throw new CommandError("Failed to install prisma dependencies.", { commandOutput: installOutput });
 	}
 
-	// Fix permissions on the repo
-	const chownOutput2 = await new Deno.Command("docker", {
-		args: [
-			"exec",
-			NODE_CONTAINER_NAME,
-			// ===
-			"chown",
-			"-R",
-			`${Deno.uid()}:${Deno.gid()}`,
-			"/prisma",
-		],
-	}).output();
-	if (!chownOutput2.success) throw new CommandError("Failed to fix permissions.", { commandOutput: chownOutput2 });
-
 	verbose("Prisma workspace init complete", prismaDir);
 }
 /**
@@ -162,7 +148,7 @@ export interface RunPrismaCommandOpts {
  * We don't use `deno run npm:prisma` because:
  *
  * - We already have Prisma installed in the workspace
- * - There are minor bugs with Deno's compatability with Prisma
+ * - There are minor bugs with Deno's compatibility with Prisma
  */
 
 export async function runPrismaCommand(
@@ -185,13 +171,13 @@ export async function runPrismaCommand(
 	// Unique isolated folder for this command to run in. This runs in the Prisma
 	// workspace where Prisma is already installed.
 	const prismaDir = getPrismaDir(project);
-	const worksapceId = crypto.randomUUID();
-	const dbDirHost = resolve(prismaDir, "db", worksapceId);
+	const workspaceId = crypto.randomUUID();
+	const dbDirHost = resolve(prismaDir, "db", workspaceId);
 	await Deno.mkdir(dbDirHost, { recursive: true });
 	verbose("Setting up Prisma command dir", dbDirHost);
 
 	// Force POSIX paths since this is in a Docker container.
-	const dbDirContainer = `/prisma/db/${worksapceId}`;
+	const dbDirContainer = `/prisma/db/${workspaceId}`;
 
 	// Copy database
 	await copy(resolve(module.path, "db"), dbDirHost, { overwrite: true });
@@ -209,7 +195,7 @@ export async function runPrismaCommand(
 	`;
 	await Deno.writeTextFile(schemaPath, schema);
 
-	// HACK: Replace the host with the Docker gateway. This isn't a failsave solution.
+	// HACK: Replace the host with the Docker gateway. This isn't a failsafe solution.
 	if (opts.env.DATABASE_URL) {
 		opts.env.DATABASE_URL = opts.env.DATABASE_URL
 			.replace("localhost", "host.docker.internal")
