@@ -110,7 +110,7 @@ export async function planProjectBuild(
 			description: "_gen/output.js",
 			async build({ signal }) {
 				const gen = resolve(project.path, "_gen");
-				const bundledFile = resolve(gen, "/output.js");
+				const bundledFile = resolve(gen, "output.js");
 
 				await esbuild.build({
 					entryPoints: [resolve(gen, "entrypoint.ts")],
@@ -157,7 +157,7 @@ export async function planProjectBuild(
 							module.path,
 							"_gen",
 							"prisma",
-							"query-engine.wasm",
+							"query_engine_bg.wasm",
 						);
 
 						if (await exists(moduleWasmPath)) {
@@ -170,11 +170,11 @@ export async function planProjectBuild(
 					if (wasmPath) {
 						// Make wasm import relative
 						bundleStr = bundleStr.replaceAll(
-							/file:[\w\\/\.\-]+query-engine\.wasm/g,
+							/file:[\w\\/\.\-]+query_engine_bg\.wasm/g,
 							"query-engine.wasm",
 						);
-					} else if (/"[\w\\/\.\-]+query-engine\.wasm/.test(bundleStr)) {
-						throw new InternalError("Failed to find required query-engine.wasm", { path: bundledFile });
+					} else if (/file:[\w\\/\.\-]+query_engine_bg\.wasm/.test(bundleStr)) {
+						throw new InternalError("Failed to find required query_engine_bg.wasm", { path: bundledFile });
 					}
 
 					signal.throwIfAborted();
