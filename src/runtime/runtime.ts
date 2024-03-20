@@ -1,4 +1,3 @@
-import { addFormats, Ajv } from "./deps.ts";
 import { ScriptContext } from "./context.ts";
 import { Context, TestContext } from "./context.ts";
 import { Postgres, PrismaClientDummy } from "./postgres.ts";
@@ -49,23 +48,20 @@ export interface ErrorConfig {
 export class Runtime<RegistryT, RegistryCamelT> {
 	public postgres: Postgres;
 
-	public ajv: Ajv.default;
-
-	public constructor(public config: Config, private camelMap: MapFrom<RegistryCamelT, RegistryT>) {
+	public constructor(
+		public config: Config,
+		private camelMap: MapFrom<RegistryCamelT, RegistryT>,
+	) {
 		this.postgres = new Postgres();
-
-		this.ajv = new Ajv.default({
-			removeAdditional: true,
-		});
-		// TODO: Why are types incompatible
-		addFormats.default(this.ajv as any);
 	}
 
 	private async shutdown() {
 		await this.postgres.shutdown();
 	}
 
-	public createRootContext(traceEntryType: TraceEntryType): Context<RegistryT, RegistryCamelT> {
+	public createRootContext(
+		traceEntryType: TraceEntryType,
+	): Context<RegistryT, RegistryCamelT> {
 		return new Context(this, newTrace(traceEntryType), this.camelMap);
 	}
 
@@ -85,7 +81,9 @@ export class Runtime<RegistryT, RegistryCamelT> {
 		config: Config,
 		moduleName: string,
 		testName: string,
-		fn: (ctx: TestContext<RegistryT, RegistryCamelT, UserConfigT, any>) => Promise<void>,
+		fn: (
+			ctx: TestContext<RegistryT, RegistryCamelT, UserConfigT, any>,
+		) => Promise<void>,
 		map: MapFrom<RegistryCamelT, RegistryT>,
 	) {
 		Deno.test({
@@ -100,7 +98,12 @@ export class Runtime<RegistryT, RegistryCamelT> {
 
 				// Build context
 				const module = config.modules[moduleName];
-				const ctx = new TestContext<RegistryT, RegistryCamelT, UserConfigT, PrismaClientDummy | undefined>(
+				const ctx = new TestContext<
+					RegistryT,
+					RegistryCamelT,
+					UserConfigT,
+					PrismaClientDummy | undefined
+				>(
 					runtime,
 					newTrace({
 						test: { module: moduleName, name: testName },

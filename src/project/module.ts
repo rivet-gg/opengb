@@ -1,6 +1,9 @@
 import { exists, relative, resolve } from "../deps.ts";
-import { glob, tjs } from "./deps.ts";
-import { configPath as moduleConfigPath, readConfig as readModuleConfig } from "../config/module.ts";
+import { glob } from "./deps.ts";
+import {
+	configPath as moduleConfigPath,
+	readConfig as readModuleConfig,
+} from "../config/module.ts";
 import { ModuleConfig } from "../config/module.ts";
 import { Script } from "./script.ts";
 import { Project } from "./project.ts";
@@ -9,6 +12,7 @@ import { validateIdentifier } from "../types/identifiers/mod.ts";
 import { Casing } from "../types/identifiers/defs.ts";
 import { ProjectModuleConfig } from "../config/project.ts";
 import { UserError } from "../error/mod.ts";
+import { AnySchemaElement } from "../build/schema/mod.ts";
 
 export interface Module {
 	/**
@@ -44,7 +48,7 @@ export interface Module {
 	 *
 	 * Generated from config.ts
 	 */
-	userConfigSchema?: tjs.Definition;
+	userConfigSchema?: AnySchemaElement;
 
 	scripts: Map<string, Script>;
 	db?: ModuleDatabase;
@@ -89,7 +93,8 @@ export async function loadModule(
 			throw new UserError(
 				`Script not found at ${relative(Deno.cwd(), scriptPath)}.`,
 				{
-					suggest: "Check the scripts in the module.yaml are configured correctly.",
+					suggest:
+						"Check the scripts in the module.yaml are configured correctly.",
 					path: moduleConfigPath(modulePath),
 				},
 			);
@@ -108,10 +113,16 @@ export async function loadModule(
 
 	// Throw error extra scripts
 	if (expectedScripts.size > 0) {
-		const scriptList = Array.from(expectedScripts).map((x) => `- ${resolve(scriptsPath, x)}\n`);
+		const scriptList = Array.from(expectedScripts).map((x) =>
+			`- ${resolve(scriptsPath, x)}\n`
+		);
 		throw new UserError(
 			`Found extra scripts not registered in module.yaml.`,
-			{ details: scriptList.join(""), suggest: "Add these scripts to the module.yaml file.", path: scriptsPath },
+			{
+				details: scriptList.join(""),
+				suggest: "Add these scripts to the module.yaml file.",
+				path: scriptsPath,
+			},
 		);
 	}
 

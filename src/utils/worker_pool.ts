@@ -73,7 +73,9 @@ export interface CreateWorkerOpts {
 export function createWorkerPool<Req, Res>(
 	opts: CreateWorkerOpts,
 ): WorkerPool<Req, Res> {
-	if (GLOBAL_STATE.shutdown) throw new InternalError("Global pool state is shut down.");
+	if (GLOBAL_STATE.shutdown) {
+		throw new InternalError("Global pool state is shut down.");
+	}
 
 	const pool: WorkerPool<Req, Res> = {
 		source: opts.source,
@@ -93,7 +95,9 @@ export interface RunJobOpts<Req, Res> {
 /**
  * Runs a job on a pool once a worker becomes available.
  */
-export function runJob<Req, Res>({ pool, request, onStart }: RunJobOpts<Req, Res>): Promise<Res> {
+export function runJob<Req, Res>(
+	{ pool, request, onStart }: RunJobOpts<Req, Res>,
+): Promise<Res> {
 	if (pool.shutdown) throw new InternalError("Pool is shut down.");
 
 	return new Promise<Res>((resolve: (x: Res) => void, reject) => {
@@ -115,7 +119,9 @@ export function runJob<Req, Res>({ pool, request, onStart }: RunJobOpts<Req, Res
  * Called any time a worker becomes available or a job is pushed to the pool.
  */
 function tickGlobalState() {
-	if (GLOBAL_STATE.shutdown) throw new InternalError("Global pool state already shut down.");
+	if (GLOBAL_STATE.shutdown) {
+		throw new InternalError("Global pool state already shut down.");
+	}
 
 	while (true) {
 		verbose(

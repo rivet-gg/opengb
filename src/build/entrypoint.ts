@@ -1,9 +1,14 @@
 import { resolve } from "../deps.ts";
 import { Project } from "../project/mod.ts";
-import { genRegistryMapPath, genRuntimeModPath, genRuntimePath } from "../project/project.ts";
+import {
+	genRegistryMapPath,
+	genRuntimeModPath,
+	genRuntimePath,
+} from "../project/project.ts";
 import { CommandError } from "../error/mod.ts";
 import { autoGenHeader } from "./misc.ts";
 import { BuildOpts, DbDriver, Runtime } from "./mod.ts";
+import { convertSerializedSchemaToRawZod } from "./schema/mod.ts";
 
 export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	const runtimeModPath = genRuntimeModPath(project);
@@ -12,7 +17,10 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	// Generate module configs
 	const [modImports, modConfig] = generateModImports(project, opts);
 
-	let imports = "";
+	let imports = `
+		// Schemas
+		import * as z from "https://deno.land/x/zod@v3.22.4/mod.ts";
+	`;
 
 	if (opts.dbDriver == DbDriver.NodePostgres) {
 		imports += `
@@ -125,7 +133,11 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 		args: ["fmt", configPath, entrypointPath],
 		signal: opts.signal,
 	}).output();
-	if (!fmtOutput.success) throw new CommandError("Failed to format generated files.", { commandOutput: fmtOutput });
+	if (!fmtOutput.success) {
+		throw new CommandError("Failed to format generated files.", {
+			commandOutput: fmtOutput,
+		});
+	}
 }
 
 function generateModImports(project: Project, opts: BuildOpts) {
@@ -139,13 +151,18 @@ function generateModImports(project: Project, opts: BuildOpts) {
 		for (const script of mod.scripts.values()) {
 			const runIdent = `modules$$${mod.name}$$${script.name}$$run`;
 
-			modImports += `import { run as ${runIdent} } from '${mod.path}/scripts/${script.name}.ts';\n`;
+			modImports +=
+				`import { run as ${runIdent} } from '${mod.path}/scripts/${script.name}.ts';\n`;
 
 			modConfig += `${JSON.stringify(script.name)}: {`;
 			modConfig += `run: ${runIdent},`;
 			modConfig += `public: ${JSON.stringify(script.config.public ?? false)},`;
-			modConfig += `requestSchema: ${JSON.stringify(script.requestSchema)},`;
-			modConfig += `responseSchema: ${JSON.stringify(script.responseSchema)},`;
+			modConfig += `requestSchema: ${
+				convertSerializedSchemaToRawZod(script.schemas?.request!)
+			},`;
+			modConfig += `responseSchema: ${
+				convertSerializedSchemaToRawZod(script.schemas?.response!)
+			},`;
 			modConfig += `},`;
 		}
 		modConfig += "},";

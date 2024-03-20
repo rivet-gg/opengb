@@ -1,6 +1,14 @@
 import { dedent } from "./deps.ts";
 import { dirname, relative, resolve } from "../deps.ts";
-import { Module, moduleGenPath, Project, Script, scriptGenPath, testGenPath, typeGenPath } from "../project/mod.ts";
+import {
+	Module,
+	moduleGenPath,
+	Project,
+	Script,
+	scriptGenPath,
+	testGenPath,
+	typeGenPath,
+} from "../project/mod.ts";
 import { genRuntimeModPath } from "../project/project.ts";
 import { autoGenHeader } from "./misc.ts";
 import { camelify, pascalify } from "../types/case_conversions.ts";
@@ -24,7 +32,10 @@ export async function compileModuleHelper(
 		`;
 	}
 
-	const { userConfigImport, userConfigType } = await getUserConfigImport(module, "..");
+	const { userConfigImport, userConfigType } = await getUserConfigImport(
+		module,
+		"..",
+	);
 
 	const source = dedent`
 		import { ModuleContext as ModuleContextInner } from "${runtimePath}";
@@ -60,10 +71,19 @@ export async function compileTestHelper(
 ) {
 	const helperPath = testGenPath(project, module);
 	const runtimePath = relative(dirname(helperPath), genRuntimeModPath(project));
-	const registryMapPath = relative(dirname(helperPath), genRegistryMapPath(project));
-	const runtimeConfigPath = relative(dirname(helperPath), `${project.path}/_gen/runtime_config.ts`);
+	const registryMapPath = relative(
+		dirname(helperPath),
+		genRegistryMapPath(project),
+	);
+	const runtimeConfigPath = relative(
+		dirname(helperPath),
+		`${project.path}/_gen/runtime_config.ts`,
+	);
 
-	const { userConfigImport, userConfigType } = await getUserConfigImport(module, "..");
+	const { userConfigImport, userConfigType } = await getUserConfigImport(
+		module,
+		"..",
+	);
 
 	const source = dedent`
 		${autoGenHeader()}
@@ -103,7 +123,10 @@ export async function compileScriptHelper(
 	const helperPath = scriptGenPath(project, module, script);
 	const runtimePath = relative(dirname(helperPath), genRuntimeModPath(project));
 
-	const { userConfigImport, userConfigType } = await getUserConfigImport(module, "../..");
+	const { userConfigImport, userConfigType } = await getUserConfigImport(
+		module,
+		"../..",
+	);
 
 	const source = dedent`
 		${autoGenHeader()}
@@ -189,7 +212,8 @@ export async function compileTypeHelpers(project: Project) {
 				};
 			`;
 
-			moduleRegistryMap += `${scriptNameCamel}: ["${moduleNameSnake}", "${scriptNameSnake}"],\n`;
+			moduleRegistryMap +=
+				`${scriptNameCamel}: ["${moduleNameSnake}", "${scriptNameSnake}"],\n`;
 		}
 
 		const moduleInterfaceNameSnake = `${moduleNamePascal}_Module`;
@@ -210,8 +234,10 @@ export async function compileTypeHelpers(project: Project) {
 			}
 		`;
 
-		moduleSnakeRegistrySource += `${moduleNameSnake}: ${moduleInterfaceNameSnake};`;
-		moduleCamelRegistrySource += `${moduleNameCamel}: ${moduleInterfaceNameCamel};`;
+		moduleSnakeRegistrySource +=
+			`${moduleNameSnake}: ${moduleInterfaceNameSnake};`;
+		moduleCamelRegistrySource +=
+			`${moduleNameCamel}: ${moduleInterfaceNameCamel};`;
 
 		registryMapSource += dedent`
 			${moduleNameCamel}: {
@@ -275,11 +301,15 @@ export async function compileModuleTypeHelper(
 	const moduleNameCamel = camelify(module.name);
 
 	const moduleDependenciesSnake = Object.keys(module.config.dependencies || {})
-		.map((dependencyName) => `${dependencyName}: RegistryFull["${dependencyName}"]`)
+		.map((dependencyName) =>
+			`${dependencyName}: RegistryFull["${dependencyName}"]`
+		)
 		.join(";\n\t");
 	const moduleDependenciesCamel = Object.keys(module.config.dependencies || {})
 		.map((dependencyName) => camelify(dependencyName))
-		.map((dependencyName) => `${dependencyName}: RegistryFullCamel["${dependencyName}"]`)
+		.map((dependencyName) =>
+			`${dependencyName}: RegistryFullCamel["${dependencyName}"]`
+		)
 		.join(";\n\t");
 
 	const source = dedent`
@@ -304,7 +334,8 @@ async function getUserConfigImport(module: Module, moduleRoot: string) {
 	let userConfigImport = "";
 	let userConfigType = "Record<string, never>";
 	if (await hasUserConfigSchema(module)) {
-		userConfigImport = `import { Config as UserConfig } from "${moduleRoot}/config.ts";`;
+		userConfigImport =
+			`import { Config as UserConfig } from "${moduleRoot}/config.ts";`;
 		userConfigType = "UserConfig";
 	}
 	return { userConfigImport, userConfigType };
