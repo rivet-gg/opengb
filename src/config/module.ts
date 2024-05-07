@@ -33,6 +33,7 @@ export interface ModuleConfig extends Record<string, unknown> {
 
 	scripts: { [name: string]: ScriptConfig };
 	actors?: { [name: string]: ActorConfig };
+	routes?: { [name: string]: RouteConfig };
 	errors: { [name: string]: ErrorConfig };
 
 	dependencies?: { [canonicalName: string]: DependencyConfig };
@@ -78,6 +79,39 @@ export interface ActorConfig {
 	 */
 	storage_id: string;
 }
+
+export interface RouteConfigBase {
+	/**
+	 * The human readable name of the route.
+	 */
+	name?: string;
+
+	/**
+	 * A short description of the route.
+	 */
+	description?: string;
+
+	/**
+	 * The HTTP method of the route.
+	 */
+	method?: string;
+}
+
+export interface ExactRouteConfig extends RouteConfigBase {
+	/**
+	 * The path of the route.
+	 */
+	path: string;
+}
+
+export interface DynamicRouteConfig extends RouteConfigBase {
+	/**
+	 * The path prefix of the route.
+	 */
+	pathPrefix: string;
+}
+
+export type RouteConfig = ExactRouteConfig | DynamicRouteConfig;
 
 export interface ErrorConfig {
 	/**
