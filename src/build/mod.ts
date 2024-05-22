@@ -51,7 +51,9 @@ export async function build(project: Project, opts: BuildOpts) {
 	opts.signal?.throwIfAborted();
 
 	// Required for `migrateDev` and `migrateDeploy`
-	await ensurePostgresRunning(project);
+	if (opts.migrate?.forceDeploy) {
+		await ensurePostgresRunning(project);
+	}
 
 	const buildState = await createBuildState(project, opts.signal);
 
