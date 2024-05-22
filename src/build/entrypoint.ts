@@ -5,9 +5,15 @@ import { CommandError } from "../error/mod.ts";
 import { autoGenHeader } from "./misc.ts";
 import { BuildOpts, DbDriver, Runtime } from "./mod.ts";
 import { dedent } from "./deps.ts";
+import { GeneratedCodeBuilder } from "./gen/code_builder.ts";
 
 export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	const runtimeModPath = genRuntimeModPath(project);
+	const configPath = genPath(project, RUNTIME_CONFIG_PATH);
+	const entrypointPath = genPath(project, ENTRYPOINT_PATH);
+	const configHelper = new GeneratedCodeBuilder(configPath);
+	const entrypointHelper = new GeneratedCodeBuilder(entrypointPath);
+	
 
 	// Generate module configs
 	const [modImports, modConfig] = generateModImports(project, opts);
@@ -39,9 +45,9 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	}
 
 	// Generate config.ts
-	const configSource = `
+	configHelper.append(`
 		${autoGenHeader()}
-		import { Config } from "${runtimeModPath}";
+		import { Config } from "${configHelper.relative(runtimeModPath)}";
 
 		${compat}
 		${imports}
@@ -50,15 +56,15 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 		export default {
 			modules: ${modConfig},
 		} as Config;
-		`;
+		`);
 
 	// Generate entrypoint.ts
 	let entrypointSource = "";
 
 	if (opts.runtime == Runtime.Deno) {
-		entrypointSource = `
+		entrypointHelper.append(`
 			${autoGenHeader()}
-			import { Runtime } from "${runtimeModPath}";
+			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
 			import { dependencyCaseConversionMap } from "${genDependencyCaseConversionMapPath(project)}";
 			import type { DependenciesSnake, DependenciesCamel } from "./dependencies.d.ts";
 			import config from "./runtime_config.ts";
@@ -69,18 +75,18 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			}
 
 			main();
-			`;
+			`);
 	} else if (opts.runtime == Runtime.Cloudflare) {
 		const runtimePath = genPath(project, RUNTIME_PATH);
-		const serverTsPath = resolve(runtimePath, "src", "runtime", "server.ts");
-		const errorTsPath = resolve(runtimePath, "src", "runtime", "error.ts");
+		const serverTsPath = entrypointHelper.relative(resolve(runtimePath, "src", "runtime", "server.ts"));
+		const errorTsPath = entrypointHelper.relative(resolve(runtimePath, "src", "runtime", "error.ts"));
 
-		entrypointSource = `
+		entrypointHelper.append(`
 			${autoGenHeader()}
 			import type { IncomingRequestCf } from 'https://raw.githubusercontent.com/skymethod/denoflare/v0.6.0/common/cloudflare_workers_types.d.ts';
-			import { Runtime } from "${runtimeModPath}";
+			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
 			import { RuntimeError } from "${errorTsPath}";
-			import { dependencyCaseConversionMap } from "${genDependencyCaseConversionMapPath(project)}";
+			import { dependencyCaseConversionMap } from "${entrypointHelper.relative(genDependencyCaseConversionMapPath(project))}";
 			import type { DependenciesSnake, DependenciesCamel } from "./dependencies.d.ts";
 			import config from "./runtime_config.ts";
 			import { serverHandler } from "${serverTsPath}";
@@ -109,15 +115,12 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 					});
 				}
 			}
-			`;
+			`);
 	}
 
 	// Write files
-	const configPath = genPath(project, RUNTIME_CONFIG_PATH);
-	const entrypointPath = genPath(project, ENTRYPOINT_PATH);
-	await Deno.mkdir(dirname(configPath), { recursive: true });
-	await Deno.writeTextFile(configPath, configSource);
-	await Deno.writeTextFile(entrypointPath, entrypointSource);
+	await configHelper.write();
+	await entrypointHelper.write();
 	await Deno.writeTextFile(
 		genPath(project, GITIGNORE_PATH),
 		".",
