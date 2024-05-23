@@ -16,7 +16,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	
 
 	// Generate module configs
-	const [modImports, modConfig] = generateModImports(project, opts);
+	const [modImports, modConfig] = generateModImports(project, opts, configHelper);
 
 	let imports = "";
 
@@ -134,7 +134,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	if (!fmtOutput.success) throw new CommandError("Failed to format generated files.", { commandOutput: fmtOutput });
 }
 
-function generateModImports(project: Project, opts: BuildOpts) {
+function generateModImports(project: Project, opts: BuildOpts, helper: GeneratedCodeBuilder): [string, string] {
 	let modImports = "";
 	let modConfig = "{";
 	for (const mod of project.modules.values()) {
@@ -145,7 +145,7 @@ function generateModImports(project: Project, opts: BuildOpts) {
 		for (const script of mod.scripts.values()) {
 			const runIdent = `modules$$${mod.name}$$${script.name}$$run`;
 
-			modImports += `import { run as ${runIdent} } from '${mod.path}/scripts/${script.name}.ts';\n`;
+			modImports += `import { run as ${runIdent} } from '${helper.relative(mod.path + "/scripts/" + script.name + ".ts")}';\n`;
 
 			modConfig += `${JSON.stringify(script.name)}: {`;
 			modConfig += `run: ${runIdent},`;
@@ -171,7 +171,7 @@ function generateModImports(project: Project, opts: BuildOpts) {
 		if (mod.db) {
 			const prismaImportName = `prisma$$${mod.name}`;
 			const prismaImportPath = genPrismaOutputBundle(project, mod);
-			modImports += `import ${prismaImportName} from ${JSON.stringify(prismaImportPath)};\n`;
+			modImports += `import ${prismaImportName} from ${JSON.stringify(helper.relative(prismaImportPath))};\n`;
 
 			modConfig += `db: {`;
 			modConfig += `name: ${JSON.stringify(mod.db.name)},`;
