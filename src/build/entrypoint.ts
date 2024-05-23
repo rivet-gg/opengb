@@ -45,7 +45,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	}
 
 	// Generate config.ts
-	configHelper.append(`
+	configHelper.append`
 		${autoGenHeader()}
 		import { Config } from "${configHelper.relative(runtimeModPath)}";
 
@@ -56,13 +56,13 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 		export default {
 			modules: ${modConfig},
 		} as Config;
-		`);
+	`;
 
 	// Generate entrypoint.ts
 	let entrypointSource = "";
 
 	if (opts.runtime == Runtime.Deno) {
-		entrypointHelper.append(`
+		entrypointHelper.append`
 			${autoGenHeader()}
 			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
 			import { dependencyCaseConversionMap } from "${genDependencyCaseConversionMapPath(project)}";
@@ -75,13 +75,13 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			}
 
 			main();
-			`);
+		`;
 	} else if (opts.runtime == Runtime.Cloudflare) {
 		const runtimePath = genPath(project, RUNTIME_PATH);
 		const serverTsPath = entrypointHelper.relative(resolve(runtimePath, "src", "runtime", "server.ts"));
 		const errorTsPath = entrypointHelper.relative(resolve(runtimePath, "src", "runtime", "error.ts"));
 
-		entrypointHelper.append(`
+		entrypointHelper.append`
 			${autoGenHeader()}
 			import type { IncomingRequestCf } from 'https://raw.githubusercontent.com/skymethod/denoflare/v0.6.0/common/cloudflare_workers_types.d.ts';
 			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
@@ -115,7 +115,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 					});
 				}
 			}
-			`);
+		`;
 	}
 
 	// Write files
