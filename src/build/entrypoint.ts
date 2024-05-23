@@ -65,7 +65,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 		entrypointHelper.append`
 			${autoGenHeader()}
 			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
-			import { dependencyCaseConversionMap } from "${genDependencyCaseConversionMapPath(project)}";
+			import { dependencyCaseConversionMap } from "${entrypointHelper.relative(genDependencyCaseConversionMapPath(project))}";
 			import type { DependenciesSnake, DependenciesCamel } from "./dependencies.d.ts";
 			import config from "./runtime_config.ts";
 
