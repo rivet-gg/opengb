@@ -1,5 +1,6 @@
-import { Context } from "../runtime/mod.ts";
+import { Context, Runtime } from "../runtime/mod.ts";
 import { RequestOf, ResponseOf } from "../types/registry.ts";
+import { ActorProxy } from "./actor.ts";
 
 type ModuleRegistryPair = readonly [string, string];
 
@@ -43,7 +44,7 @@ type ModuleRegistryPair = readonly [string, string];
  * };
  * ```
  *
- * This is used by the {@linkcode buildRegistryProxy} function to map the camel
+ * This is used by the {@linkcode buildDependencyRegistryProxy} function to map the camel
  * case keys from `ctx.modules.<camelMod>.<camelScript>(data);` to an
  * equivalent call to `ctx.call(<snake_mod>, <snake_script>, data);`.
  */
@@ -83,7 +84,7 @@ export type RegistryCallMap = Record<string, Record<string, ModuleRegistryPair>>
  * }
  * ```
  *
- * This is the type returned by the {@linkcode buildRegistryProxy} function.
+ * This is the type returned by the {@linkcode buildDependencyRegistryProxy} function.
  *
  * It is accessible to the user as `ctx.modules`.
  */
@@ -96,6 +97,15 @@ export type CallableDependencies<DependenciesT> = {
 };
 
 /**
+ * TODO: Comment
+ */
+export type ActorProxies<ActorDependenciesT> = {
+	[Mod in keyof ActorDependenciesT]: {
+		[Actor in keyof ActorDependenciesT[Mod]]: ActorProxy;
+	};
+};
+
+/**
  * @param ctx The {@link Context} object to use to call the scripts in
  * accessible modules
  * @param map A {@link MapFrom} object that describes how to map
@@ -104,8 +114,8 @@ export type CallableDependencies<DependenciesT> = {
  * that used in the `ctx.modules.<script>.<name>()` pattern to call scripts
  * without the `ctx.call` function.
  */
-export function buildRegistryProxy<DependenciesSnakeT, DependenciesCamelT>(
-	ctx: Context<DependenciesSnakeT, DependenciesCamelT>,
+export function buildDependencyRegistryProxy<DependenciesSnakeT, DependenciesCamelT>(
+	ctx: Context<DependenciesSnakeT, DependenciesCamelT, any, any>,
 	dependenciesMapCamelToSnake: RegistryCallMap,
 ): CallableDependencies<DependenciesCamelT> {
 	const handler = {
@@ -131,4 +141,32 @@ export function buildRegistryProxy<DependenciesSnakeT, DependenciesCamelT>(
 		},
 	};
 	return new Proxy({}, handler) as CallableDependencies<DependenciesCamelT>;
+}
+
+export function buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
+	runtime: Runtime<any, any, ActorsSnakeT, ActorsCamelT>,
+	actorMapCamelToSnake: RegistryCallMap,
+): ActorProxies<ActorsCamelT> {
+	// TODO: Get rid of outer proxy (ctx.actors.foo.xxx -> ctx.actors.xxx)
+	const handler = {
+		get: (_target: unknown, moduleProp: string) => {
+			if (moduleProp in actorMapCamelToSnake) {
+				const moduleMap = actorMapCamelToSnake[moduleProp as keyof typeof actorMapCamelToSnake];
+
+				return new Proxy(moduleMap, {
+					get: (_target: unknown, scriptProp: string) => {
+						if (scriptProp in moduleMap) {
+							const pair = moduleMap[scriptProp as keyof typeof moduleMap];
+							return new ActorProxy(
+								runtime.actorDriver,
+								pair[0] as any,
+								pair[1] as any,
+							);
+						}
+					},
+				});
+			}
+		},
+	};
+	return new Proxy({}, handler) as ActorProxies<ActorsCamelT>;
 }

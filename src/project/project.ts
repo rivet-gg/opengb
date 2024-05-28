@@ -9,6 +9,7 @@ import { validateIdentifier } from "../types/identifiers/mod.ts";
 import { Casing } from "../types/identifiers/defs.ts";
 import { loadDefaultRegistry } from "./registry.ts";
 import { UserError } from "../error/mod.ts";
+import { BuildOpts, Runtime } from "../build/mod.ts";
 
 export interface Project {
 	path: string;
@@ -238,6 +239,7 @@ function moduleNameInRegistry(
 export const GITIGNORE_PATH = ".gitignore";
 export const RUNTIME_CONFIG_PATH = "runtime_config.ts";
 export const ENTRYPOINT_PATH = "entrypoint.ts";
+export const ACTOR_PATH = "actor.ts";
 export const BUNDLE_PATH = "output.js";
 export const MANIFEST_PATH = "manifest.json";
 export const META_PATH = "meta.json";
@@ -260,6 +262,13 @@ export function genDependencyTypedefPath(project: Project): string {
 }
 export function genDependencyCaseConversionMapPath(project: Project): string {
 	return genPath(project, "dependencyCaseConversion.ts");
+}
+
+export function genActorTypedefPath(project: Project): string {
+	return genPath(project, "actors.d.ts");
+}
+export function genActorCaseConversionMapPath(project: Project): string {
+	return genPath(project, "actorCaseConversion.ts");
 }
 
 function genPublicUtilsFolder(project: Project): string {
@@ -302,6 +311,10 @@ export function genPrismaOutputFolder(project: Project, module: Module): string 
  */
 export function genPrismaOutputBundle(project: Project, module: Module): string {
 	return resolve(genPrismaOutputFolder(project, module), "esm.js");
+}
+
+export function genActorPath(project: Project): string {
+	return genPath(project, "actor.ts");
 }
 
 export interface ListSourceFileOpts {

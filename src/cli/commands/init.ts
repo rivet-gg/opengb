@@ -8,5 +8,11 @@ export const initCommand = new Command<GlobalOpts>()
 	.action(
 		async (_opts, dir?: string) => {
 			await templateProject(dir || ".");
+			
+			console.log("Welcome to Open Game Backend");
+			console.log("");
+			console.log("Created backend.yaml & modules");
+			console.log("");
+			console.log("Get started at https://opengb.dev/concepts/quickstart");
 		},
 	);

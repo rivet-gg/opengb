@@ -48,8 +48,20 @@ export class RuntimeError extends Error {
 	public enrich<
 		DependenciesSnakeT,
 		DependenciesCamelT,
-		Ctx extends Context<DependenciesSnakeT, DependenciesCamelT>,
-	>(runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>, context: Ctx) {
+		ActorsSnakeT,
+		ActorsCamelT,
+		Ctx extends Context<
+			DependenciesSnakeT,
+			DependenciesCamelT,
+			ActorsSnakeT,
+			ActorsCamelT
+		>,
+	>(runtime: Runtime<
+		DependenciesSnakeT,
+		DependenciesCamelT,
+		ActorsSnakeT,
+		ActorsCamelT
+	>, context: Ctx) {
 		// Add context to error
 		if (context instanceof ModuleContext) {
 			this.moduleName = context.moduleName;

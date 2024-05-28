@@ -3,6 +3,7 @@ import { glob, tjs } from "./deps.ts";
 import { configPath as moduleConfigPath, readConfig as readModuleConfig } from "../config/module.ts";
 import { ModuleConfig } from "../config/module.ts";
 import { Script } from "./script.ts";
+import { Actor } from "./actor.ts";
 import { Project } from "./project.ts";
 import { Registry } from "./registry.ts";
 import { validateIdentifier } from "../types/identifiers/mod.ts";
@@ -47,6 +48,7 @@ export interface Module {
 	userConfigSchema?: tjs.Definition;
 
 	scripts: Map<string, Script>;
+	actors: Map<string, Actor>;
 	db?: ModuleDatabase;
 
 	// Cache
@@ -72,7 +74,7 @@ export async function loadModule(
 	// Find names of the expected scripts to find. Used to print error for extra scripts.
 	const scriptsPath = resolve(modulePath, "scripts");
 	const expectedScripts = new Set(
-		await glob.glob("*.ts", { cwd: resolve(modulePath, "scripts") }),
+		await glob.glob("*.ts", { cwd: scriptsPath }),
 	);
 
 	// Read scripts
@@ -115,6 +117,52 @@ export async function loadModule(
 		);
 	}
 
+	// Find names of the expected actors to find. Used to print error for extra actors.
+	const actorsPath = resolve(modulePath, "actors");
+	const expectedActors = new Set(
+		await glob.glob("*.ts", { cwd: actorsPath }),
+	);
+
+	// Read actors
+	const actors = new Map<string, Actor>();
+	for (const actorName in config.actors) {
+		validateIdentifier(actorName, Casing.Snake);
+
+		// Load actor
+		const actorPath = resolve(
+			actorsPath,
+			actorName + ".ts",
+		);
+		if (!await exists(actorPath)) {
+			throw new UserError(
+				`actor not found at ${relative(Deno.cwd(), actorPath)}.`,
+				{
+					suggest: "Check the actors in the module.yaml are configured correctly.",
+					path: moduleConfigPath(modulePath),
+				},
+			);
+		}
+
+		const actor: Actor = {
+			path: actorPath,
+			name: actorName,
+			config: config.actors[actorName],
+		};
+		actors.set(actorName, actor);
+
+		// Remove actor
+		expectedActors.delete(actorName + ".ts");
+	}
+
+	// Throw error extra actors
+	if (expectedActors.size > 0) {
+		const actorList = Array.from(expectedActors).map((x) => `- ${resolve(actorsPath, x)}\n`);
+		throw new UserError(
+			`Found extra actors not registered in module.yaml.`,
+			{ details: actorList.join(""), suggest: "Add these actors to the module.yaml file.", path: actorsPath },
+		);
+	}
+
 	// Verify error names
 	for (const errorName in config.errors) {
 		validateIdentifier(errorName, Casing.Snake);
@@ -139,6 +187,7 @@ export async function loadModule(
 		config,
 		registry,
 		scripts,
+		actors,
 		db,
 	};
 }
@@ -155,6 +204,41 @@ export function moduleHelperGen(
 
 export function publicPath(module: Module): string {
 	return resolve(module.path, "public.ts");
+}
+
+export function moduleGenActorPath(
+	_project: Project,
+	module: Module,
+): string {
+	return resolve(
+		module.path,
+		"_gen",
+		"actor.ts",
+	);
+}
+
+export function testGenPath(_project: Project, module: Module): string {
+	return resolve(
+		module.path,
+		"_gen",
+		"test.ts",
+	);
+}
+
+export function typeGenPath(_project: Project, module: Module): string {
+	return resolve(
+		module.path,
+		"_gen",
+		"registry.d.ts",
+	);
+}
+
+export function moduleGenRegistryMapPath(_project: Project, module: Module): string {
+	return resolve(
+		module.path,
+		"_gen",
+		"registryMap.ts",
+	);
 }
 
 export function configPath(module: Module): string {

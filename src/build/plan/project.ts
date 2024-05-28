@@ -18,6 +18,7 @@ import { generateMeta } from "../meta.ts";
 import { BUNDLE_PATH, genPath, genPrismaOutputBundle, genPrismaOutputFolder } from "../../project/project.ts";
 import { ENTRYPOINT_PATH } from "../../project/project.ts";
 import { MANIFEST_PATH } from "../../project/project.ts";
+import { compileActorTypeHelpers } from "../gen/mod.ts";
 
 export async function planProjectBuild(
 	buildState: BuildState,
@@ -78,6 +79,18 @@ export async function planProjectBuild(
 	});
 
 	buildStep(buildState, {
+		id: `project.generate.actors`,
+		name: "Generate",
+		description: "actors.d.ts",
+		condition: {
+			files: [...project.modules.values()].map((m) => resolve(m.path, "module.yaml")),
+		},
+		async build() {
+			await compileActorTypeHelpers(project);
+		},
+	});
+
+	buildStep(buildState, {
 		id: `project.generate.deno_config`,
 		name: "Generate",
 		description: "deno.json",
@@ -120,7 +133,7 @@ export async function planProjectBuild(
 		buildStep(buildState, {
 			id: `project.bundle`,
 			name: "Bundle",
-			description: "output.js",
+			description: "bundle.js",
 			async build({ signal }) {
 				const bundledFile = genPath(project, BUNDLE_PATH);
 
@@ -139,6 +152,8 @@ export async function planProjectBuild(
 						// Wasm must be loaded as a separate file manually, cannot be bundled
 						"*.wasm",
 						"*.wasm?module",
+						// This import only exists when running on cloudflare
+						"cloudflare:workers",
 					],
 					bundle: true,
 					minify: true,
@@ -212,22 +227,25 @@ export async function planProjectBuild(
 
 	await waitForBuildPromises(buildState);
 
-	buildStep(buildState, {
-		id: `project.check.entrypoint`,
-		name: "Check",
-		description: "entrypoint.ts",
-		async build() {
-			const checkOutput = await new Deno.Command("deno", {
-				args: ["check", "--quiet", genPath(project, ENTRYPOINT_PATH)],
-				signal,
-			}).output();
-			if (!checkOutput.success) {
-				throw new UserError("Check failed.", {
-					details: new TextDecoder().decode(checkOutput.stderr).trim(),
-				});
-			}
-		},
-	});
+	// TODO: This is disabled when building for cf because there is an unresolved import
+	if (opts.runtime != Runtime.Cloudflare) {
+		buildStep(buildState, {
+			id: `project.check.entrypoint`,
+			name: "Check",
+			description: ".opengb/entrypoint.ts",
+			async build() {
+				const checkOutput = await new Deno.Command("deno", {
+					args: ["check", "--quiet", resolve(project.path, ".opengb", "entrypoint.ts")],
+					signal,
+				}).output();
+				if (!checkOutput.success) {
+					throw new UserError("Check failed.", {
+						details: new TextDecoder().decode(checkOutput.stderr).trim(),
+					});
+				}
+			},
+		});
+	}
 
 	await waitForBuildPromises(buildState);
 

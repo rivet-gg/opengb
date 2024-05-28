@@ -2,10 +2,11 @@ import { addFormats, Ajv } from "./deps.ts";
 import { ScriptContext } from "./context.ts";
 import { Context, TestContext } from "./context.ts";
 import { Postgres, PrismaClientDummy } from "./postgres.ts";
-import { serverHandler } from "./server.ts";
+import { handleRequest } from "./server.ts";
 import { TraceEntryType } from "./trace.ts";
 import { newTrace } from "./trace.ts";
 import { RegistryCallMap } from "./proxy.ts";
+import { ActorDriver } from "./actor.ts";
 
 export interface Config {
 	modules: Record<string, Module>;
@@ -13,6 +14,7 @@ export interface Config {
 
 export interface Module {
 	scripts: Record<string, Script>;
+	actors: Record<string, Actor>;
 	errors: Record<string, ErrorConfig>;
 	db?: {
 		name: string;
@@ -38,20 +40,30 @@ export interface Script {
 }
 
 export type ScriptRun<Req, Res, UserConfigT, DatabaseT> = (
-	ctx: ScriptContext<any, any, UserConfigT, DatabaseT>,
+	ctx: ScriptContext<any, any, any, any, UserConfigT, DatabaseT>,
 	req: Req,
 ) => Promise<Res>;
+
+export interface Actor {
+	actor: any;
+	storageId: string;
+}
 
 export interface ErrorConfig {
 	description?: string;
 }
 
-export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
+export class Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT> {
 	public postgres: Postgres;
 
 	public ajv: Ajv.default;
 
-	public constructor(public config: Config, private dependencyCaseConversionMap: RegistryCallMap) {
+	public constructor(
+		public config: Config,
+		public actorDriver: ActorDriver,
+		private dependencyCaseConversionMap: RegistryCallMap,
+		private actorDependencyCaseConversionMap: RegistryCallMap,
+	) {
 		this.postgres = new Postgres();
 
 		this.ajv = new Ajv.default({
@@ -65,8 +77,10 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 		await this.postgres.shutdown();
 	}
 
-	public createRootContext(traceEntryType: TraceEntryType): Context<DependenciesSnakeT, DependenciesCamelT> {
-		return new Context(this, newTrace(traceEntryType), this.dependencyCaseConversionMap);
+	public createRootContext(
+		traceEntryType: TraceEntryType
+	): Context<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT> {
+		return new Context(this, newTrace(traceEntryType), this.dependencyCaseConversionMap, this.actorDependencyCaseConversionMap);
 	}
 
 	/**
@@ -75,18 +89,25 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 	public async serve() {
 		const port = parseInt(Deno.env.get("PORT") ?? "8080");
 		console.log(`Serving on port ${port}`);
-		await Deno.serve({ port }, serverHandler(this)).finished;
+		await Deno.serve(
+			{ port },
+			(req, info) => handleRequest(this, req, { remoteAddress: info.remoteAddr.hostname }),
+		).finished;
 	}
 
 	/**
 	 * Registers a module test with the Deno runtime.
 	 */
-	public static test<DependenciesSnakeT, DependenciesCamelT, UserConfigT>(
+	public static test<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT>(
 		config: Config,
+		actorDriver: ActorDriver,
 		moduleName: string,
 		testName: string,
-		fn: (ctx: TestContext<DependenciesSnakeT, DependenciesCamelT, UserConfigT, any>) => Promise<void>,
+		fn: (
+			ctx: TestContext<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT, any>,
+		) => Promise<void>,
 		dependencyCaseConversionMap: RegistryCallMap,
+		actorDependencyCaseConversionMap: RegistryCallMap,
 	) {
 		Deno.test({
 			name: testName,
@@ -96,11 +117,23 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 			sanitizeResources: false,
 
 			async fn() {
-				const runtime = new Runtime<DependenciesSnakeT, DependenciesCamelT>(config, dependencyCaseConversionMap);
+				const runtime = new Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>(
+					config,
+					actorDriver,
+					dependencyCaseConversionMap,
+					actorDependencyCaseConversionMap,
+				);
 
 				// Build context
 				const module = config.modules[moduleName];
-				const ctx = new TestContext<DependenciesSnakeT, DependenciesCamelT, UserConfigT, PrismaClientDummy | undefined>(
+				const ctx = new TestContext<
+					DependenciesSnakeT,
+					DependenciesCamelT,
+					ActorsSnakeT,
+					ActorsCamelT,
+					UserConfigT,
+					PrismaClientDummy | undefined
+				>(
 					runtime,
 					newTrace({
 						test: { module: moduleName, name: testName },
@@ -108,6 +141,7 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 					moduleName,
 					runtime.postgres.getOrCreatePool(module)?.prisma,
 					dependencyCaseConversionMap,
+					actorDependencyCaseConversionMap,
 				);
 
 				// Run test

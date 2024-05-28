@@ -2,14 +2,15 @@ import { Runtime } from "./runtime.ts";
 import { Trace } from "./trace.ts";
 import { RuntimeError } from "./error.ts";
 import { appendTraceEntry } from "./trace.ts";
-import { buildRegistryProxy, RegistryCallMap } from "./proxy.ts";
+import { buildDependencyRegistryProxy, buildActorRegistryProxy, RegistryCallMap } from "./proxy.ts";
 import { DependencyScriptCallFunction } from "../types/registry.ts";
 
-export class Context<DependenciesSnakeT, DependenciesCamelT> {
+export class Context<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT> {
 	public constructor(
-		protected readonly runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
+		protected readonly runtime: Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>,
 		public readonly trace: Trace,
 		private readonly dependencyCaseConversionMap: RegistryCallMap,
+		protected readonly actorCaseConversionMap: RegistryCallMap,
 	) {}
 
 	protected isAllowedModuleName(_moduleName: string): boolean {
@@ -52,6 +53,7 @@ export class Context<DependenciesSnakeT, DependenciesCamelT> {
 				this.runtime.postgres.getOrCreatePool(module)?.prisma,
 				scriptName,
 				this.dependencyCaseConversionMap,
+				this.actorCaseConversionMap,
 			);
 
 			// TODO: Replace with OGBE-15
@@ -91,7 +93,7 @@ export class Context<DependenciesSnakeT, DependenciesCamelT> {
 	};
 
 	public get modules() {
-		return buildRegistryProxy<DependenciesSnakeT, DependenciesCamelT>(
+		return buildDependencyRegistryProxy<DependenciesSnakeT, DependenciesCamelT>(
 			this,
 			this.dependencyCaseConversionMap,
 		);
@@ -156,16 +158,17 @@ export class Context<DependenciesSnakeT, DependenciesCamelT> {
 /**
  * Context for a module.
  */
-export class ModuleContext<DependenciesSnakeT, DependenciesCamelT, UserConfigT, DatabaseT>
-	extends Context<DependenciesSnakeT, DependenciesCamelT> {
+export class ModuleContext<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT, DatabaseT>
+	extends Context<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT> {
 	public constructor(
-		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
+		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>,
 		trace: Trace,
 		public readonly moduleName: string,
 		public readonly db: DatabaseT,
 		dependencyCaseConversionMap: RegistryCallMap,
+		actorCaseConversionMap: RegistryCallMap,
 	) {
-		super(runtime, trace, dependencyCaseConversionMap);
+		super(runtime, trace, dependencyCaseConversionMap, actorCaseConversionMap);
 	}
 
 	protected isAllowedModuleName(targetModuleName: string): boolean {
@@ -178,27 +181,35 @@ export class ModuleContext<DependenciesSnakeT, DependenciesCamelT, UserConfigT, 
 	public get userConfig(): UserConfigT {
 		return this.runtime.config.modules[this.moduleName].userConfig as UserConfigT;
 	}
+
+	public get actors() {
+		return buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
+			this.runtime,
+			this.actorCaseConversionMap,
+		);
+	}
 }
 
 /**
  * Context for a script.
  */
-export class ScriptContext<DependenciesSnakeT, DependenciesCamelT, UserConfigT, DatabaseT>
-	extends ModuleContext<DependenciesSnakeT, DependenciesCamelT, UserConfigT, DatabaseT> {
+export class ScriptContext<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT, DatabaseT>
+	extends ModuleContext<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT, DatabaseT> {
 	public constructor(
-		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
+		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>,
 		trace: Trace,
 		moduleName: string,
 		db: DatabaseT,
 		public readonly scriptName: string,
 		dependencyCaseConversionMap: RegistryCallMap,
+		actorCaseConversionMap: RegistryCallMap,
 	) {
-		super(runtime, trace, moduleName, db, dependencyCaseConversionMap);
+		super(runtime, trace, moduleName, db, dependencyCaseConversionMap, actorCaseConversionMap);
 	}
 }
 
 /**
  * Context for a test.
  */
-export class TestContext<DependenciesSnakeT, DependenciesCamelT, UserConfigT, DatabaseT>
-	extends ModuleContext<DependenciesSnakeT, DependenciesCamelT, UserConfigT, DatabaseT> {}
+export class TestContext<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT, DatabaseT>
+	extends ModuleContext<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT, DatabaseT> {}

@@ -12,7 +12,7 @@
 		"cli:compile": "deno task artifacts:build:all && deno compile --check --allow-net --allow-read --allow-env --allow-run --allow-write --allow-sys --output dist/cli src/cli/main.ts",
 
 		// Installs the CLI on the local machine
-		"cli:install": "deno task artifacts:build:all && deno install --global --check --allow-net --allow-read --allow-env --allow-run --allow-write --allow-sys --name opengb --force src/cli/main.ts",
+		"cli:install": "deno task artifacts:build:all && deno install --check --allow-net --allow-read --allow-env --allow-run --allow-write --allow-sys --name opengb --force src/cli/main.ts",
 
 		// Generates schema
 		"artifacts:build:all": "deno task artifacts:build:schema && deno task artifacts:build:runtime_archive",

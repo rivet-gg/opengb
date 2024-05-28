@@ -11,7 +11,7 @@ if (!dirname) throw new Error("Missing dirname");
 const rootSrc = resolve(dirname, "..", "..");
 
 const files = await glob.glob([
-	"src/{runtime,types}/*.ts",
+	"src/{runtime,types,dynamic}/*.ts",
 	"src/deps.ts",
 	"src/utils/db.ts",
 ], { cwd: rootSrc });

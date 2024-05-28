@@ -1,7 +1,7 @@
 import { parse, resolve } from "../deps.ts";
 import { Ajv } from "./deps.ts";
 import schema from "../../artifacts/module_schema.json" with { type: "json" };
-import { InternalError } from "../error/mod.ts";
+import { InternalError, UserError } from "../error/mod.ts";
 
 export interface ModuleConfig extends Record<string, unknown> {
 	status?: "preview" | "beta" | "stable" | "maintenance" | "end_of_life";
@@ -32,6 +32,7 @@ export interface ModuleConfig extends Record<string, unknown> {
 	authors?: string[];
 
 	scripts: { [name: string]: ScriptConfig };
+	actors?: { [name: string]: ActorConfig };
 	errors: { [name: string]: ErrorConfig };
 
 	dependencies?: { [canonicalName: string]: DependencyConfig };
@@ -59,6 +60,16 @@ export interface ScriptConfig {
 	 * @default false
 	 */
 	public?: boolean;
+}
+
+export interface ActorConfig {
+	/**
+	 * A globally unique string for storing data for this actor.
+	 *
+	 * **IMPORTANT** Changing this will effectively unlink all data stored in this actor. Changing it back to
+	 * the old value will restore the data.
+	 */
+	storage_id: string;
 }
 
 export interface ErrorConfig {
@@ -96,6 +107,20 @@ export async function readConfig(modulePath: string): Promise<ModuleConfig> {
 		throw new InternalError(
 			`Invalid module config: ${JSON.stringify(moduleConfigSchema.errors)}`,
 		);
+	}
+
+	// Validate unique actor storage ids
+	const uniqueActorStorageIds = new Map();
+	for (const [actorName, actor] of Object.entries(config.actors ?? {})) {
+		const entry = uniqueActorStorageIds.get(actor.storage_id);
+
+		if (entry != undefined) {
+			throw new UserError(
+				`Duplicate storage IDs for actors "${entry}" and "${actorName}". Actor storage IDs must be unique.`,
+			);
+		} else {
+			uniqueActorStorageIds.set(actor.storage_id, actorName);
+		}
 	}
 
 	return config;

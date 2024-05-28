@@ -1,4 +1,4 @@
-import { hasUserConfigSchema, Module, moduleHelperGen, Project } from "../../project/mod.ts";
+import { genActorCaseConversionMapPath, genActorTypedefPath, hasUserConfigSchema, Module, moduleHelperGen, Project } from "../../project/mod.ts";
 import { GeneratedCodeBuilder } from "./mod.ts";
 import {
 	genDependencyCaseConversionMapPath,
@@ -7,6 +7,7 @@ import {
 	genPath,
 	genPrismaOutputBundle,
 	genRuntimeModPath,
+	genActorPath,
 	RUNTIME_CONFIG_PATH,
 } from "../../project/project.ts";
 import { camelify } from "../../types/case_conversions.ts";
@@ -19,14 +20,24 @@ export async function compileModuleHelper(
 
 	const runtimePath = helper.relative(genRuntimeModPath(project));
 	const dependencyCaseConversionMapPath = helper.relative(genDependencyCaseConversionMapPath(project));
+	const actorCaseConversionMapPath = helper.relative(genActorCaseConversionMapPath(project));
 	const runtimeConfigPath = helper.relative(genPath(project, RUNTIME_CONFIG_PATH));
 
 	// Import block
 	const importBlock = helper.chunk.withNewlinesPerChunk(1)
 		.append`
-			import { RuntimeError, ModuleContext as ModuleContextInner, Runtime, TestContext as TestContextInner, ScriptContext as ScriptContextInner } from "${runtimePath}";
+			import {
+				RuntimeError,
+				ModuleContext as ModuleContextInner,
+				Runtime,
+				TestContext as TestContextInner,
+				ScriptContext as ScriptContextInner,
+			} from "${runtimePath}";
 			import config from "${runtimeConfigPath}";
 			import { dependencyCaseConversionMap } from "${dependencyCaseConversionMapPath}";
+			import { actorCaseConversionMap } from "${actorCaseConversionMapPath}";
+
+			import { ActorBase, ACTOR_DRIVER } from "${genActorPath(project)}";
 		`;
 
 	// Type helpers
@@ -43,13 +54,14 @@ export async function compileModuleHelper(
 
 	// Common exports
 	helper.chunk.append`
-			export { RuntimeError };
+			export { RuntimeError, ActorBase };
 		`;
 
 	// Gen blocks
 	const { userConfigType } = await genUserConfig(project, module, helper);
 	genPublic(project, module, helper);
 	genDependencies(project, module, helper);
+	genActors(project, module, helper);
 	genModule(project, module, helper, importBlock, userConfigType);
 	genTest(project, module, helper, userConfigType);
 	genScript(project, module, helper, userConfigType);
@@ -125,6 +137,53 @@ function genDependencies(
 	);
 }
 
+function genActors(
+	project: Project,
+	module: Module,
+	helper: GeneratedCodeBuilder,
+) {
+	const typedefPath = genActorTypedefPath(project);
+
+	helper.append`
+		import type {
+			ActorsSnake as ActorsSnakeFull,
+			ActorsCamel as ActorsCamelFull,
+		} from "${typedefPath}";
+	`;
+
+	const actorsTypedefSnake = helper.chunk.withNewlinesPerChunk(1);
+	const actorsTypedefCamel = helper.chunk.withNewlinesPerChunk(1);
+
+	const moduleNameSnake = module.name;
+	const moduleNameCamel = camelify(module.name);
+
+	for (const dependencyName of Object.keys(module.config.dependencies || {})) {
+		const dependencyNameSnake = dependencyName;
+		const dependencyNameCamel = camelify(dependencyName);
+
+		actorsTypedefSnake.append`
+			${dependencyNameSnake}: ActorsSnakeFull["${dependencyNameSnake}"];
+		`;
+		actorsTypedefCamel.append`
+			${dependencyNameCamel}: ActorsCamelFull["${dependencyNameCamel}"];
+		`;
+	}
+
+	actorsTypedefSnake.prepend`${moduleNameSnake}: ActorsSnakeFull["${moduleNameSnake}"];`;
+	actorsTypedefCamel.prepend`${moduleNameCamel}: ActorsCamelFull["${moduleNameCamel}"];`;
+
+	GeneratedCodeBuilder.wrap(
+		"interface ActorsSnake {",
+		actorsTypedefSnake,
+		"}",
+	);
+	GeneratedCodeBuilder.wrap(
+		"interface ActorsCamel {",
+		actorsTypedefCamel,
+		"}",
+	);
+}
+
 function genModule(
 	project: Project,
 	module: Module,
@@ -148,6 +207,8 @@ function genModule(
 			export type ModuleContext = ModuleContextInner<
 				DependenciesSnake,
 				DependenciesCamel,
+				ActorsSnake,
+				ActorsCamel,
 				${userConfigType},
 				${module.db ? "prisma.PrismaClient" : "undefined"}
 			>;
@@ -167,6 +228,8 @@ function genTest(
 			export type TestContext = TestContextInner<
 				DependenciesSnake,
 				DependenciesCamel,
+				ActorsSnake,
+				ActorsCamel,
 				${userConfigType},
 				${module.db ? "prisma.PrismaClient" : "undefined"}
 			>;
@@ -177,7 +240,15 @@ function genTest(
 		.append`export type TestFn = (ctx: TestContext) => Promise<void>;`
 		.append`
 			export function test(name: string, fn: TestFn) {
-				Runtime.test(config, "${module.name}", name, fn, dependencyCaseConversionMap);
+				Runtime.test(
+					config,
+					ACTOR_DRIVER,
+					"${module.name}",
+					name,
+					fn,
+					dependencyCaseConversionMap,
+					actorCaseConversionMap,
+				);
 			}
 		`;
 }
@@ -195,6 +266,8 @@ function genScript(
 			export type ScriptContext = ScriptContextInner<
 				DependenciesSnake,
 				DependenciesCamel,
+				ActorsSnake,
+				ActorsCamel,
 				${userConfigType},
 				${module.db ? "prisma.PrismaClient" : "undefined"}
 			>;
