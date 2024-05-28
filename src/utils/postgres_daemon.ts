@@ -1,8 +1,7 @@
 import { CommandError, UserError } from "../error/mod.ts";
-import { PostgresClient } from "../migrate/deps.ts";
 import { Project } from "../project/mod.ts";
 import { verbose } from "../term/status.ts";
-import { getDefaultDatabaseUrl } from "./db.ts";
+import { isExternalDatabase } from "./db.ts";
 import { createOnce, getOrInitOnce } from "./once.ts";
 
 const CONTAINER_NAME = "opengb-postgres";
@@ -15,29 +14,12 @@ const POSTGRES_ONCE = createOnce<void>();
  */
 export async function ensurePostgresRunning(project: Project) {
 	return await getOrInitOnce(POSTGRES_ONCE, async () => {
-		const isServerUp = await isPostgresServerUp(project);
-
-		if (isServerUp) return;
+		if (isExternalDatabase()) {
+			return;
+		}
 
 		await runPostgresDaemon(project);
 	});
-}
-
-async function isPostgresServerUp(_project: Project) {
-	const client = new PostgresClient(getDefaultDatabaseUrl());
-
-	let isUp = false;
-	try {
-		await client.connect();
-
-		isUp = true;
-	} catch {
-		isUp = false;
-	}
-
-	await client.end();
-
-	return isUp;
 }
 
 async function runPostgresDaemon(_project: Project) {
