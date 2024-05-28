@@ -268,7 +268,7 @@ function genPublicUtilsFolder(project: Project): string {
 
 /**
  * Inner file used to nest any imports related to this module.
- * 
+ *
  * This will be re-imported in other `genModulePublicExternal`.
  */
 export function genModulePublicInternal(project: Project, module: Module): string {
@@ -277,7 +277,7 @@ export function genModulePublicInternal(project: Project, module: Module): strin
 
 /**
  * File that gets imported as `Module` in the module.gen.ts.
- * 
+ *
  * This exports the dependencies (the `genModulePublicInternal` files) with
  * their given module names.
  */

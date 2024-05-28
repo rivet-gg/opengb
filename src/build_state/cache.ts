@@ -1,6 +1,6 @@
 import { exists, resolve, tjs } from "../deps.ts";
 import { UnreachableError } from "../error/mod.ts";
-import { CACHE_PATH, Project, genPath } from "../project/project.ts";
+import { CACHE_PATH, genPath, Project } from "../project/project.ts";
 import { verbose } from "../term/status.ts";
 import { crypto, encodeHex } from "./deps.ts";
 

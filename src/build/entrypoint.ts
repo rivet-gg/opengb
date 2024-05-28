@@ -1,6 +1,15 @@
 import { dirname, resolve } from "../deps.ts";
 import { Project } from "../project/mod.ts";
-import { ENTRYPOINT_PATH, GITIGNORE_PATH, RUNTIME_CONFIG_PATH, RUNTIME_PATH, genDependencyCaseConversionMapPath, genPath, genPrismaOutputBundle, genRuntimeModPath } from "../project/project.ts";
+import {
+	ENTRYPOINT_PATH,
+	genDependencyCaseConversionMapPath,
+	genPath,
+	genPrismaOutputBundle,
+	genRuntimeModPath,
+	GITIGNORE_PATH,
+	RUNTIME_CONFIG_PATH,
+	RUNTIME_PATH,
+} from "../project/project.ts";
 import { CommandError } from "../error/mod.ts";
 import { autoGenHeader } from "./misc.ts";
 import { BuildOpts, DbDriver, Runtime } from "./mod.ts";
@@ -13,7 +22,6 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	const entrypointPath = genPath(project, ENTRYPOINT_PATH);
 	const configHelper = new GeneratedCodeBuilder(configPath);
 	const entrypointHelper = new GeneratedCodeBuilder(entrypointPath);
-	
 
 	// Generate module configs
 	const [modImports, modConfig] = generateModImports(project, opts, configHelper);
@@ -65,7 +73,9 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 		entrypointHelper.append`
 			${autoGenHeader()}
 			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
-			import { dependencyCaseConversionMap } from "${entrypointHelper.relative(genDependencyCaseConversionMapPath(project))}";
+			import { dependencyCaseConversionMap } from "${
+			entrypointHelper.relative(genDependencyCaseConversionMapPath(project))
+		}";
 			import type { DependenciesSnake, DependenciesCamel } from "./dependencies.d.ts";
 			import config from "./runtime_config.ts";
 
@@ -86,7 +96,9 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			import type { IncomingRequestCf } from 'https://raw.githubusercontent.com/skymethod/denoflare/v0.6.0/common/cloudflare_workers_types.d.ts';
 			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
 			import { RuntimeError } from "${errorTsPath}";
-			import { dependencyCaseConversionMap } from "${entrypointHelper.relative(genDependencyCaseConversionMapPath(project))}";
+			import { dependencyCaseConversionMap } from "${
+			entrypointHelper.relative(genDependencyCaseConversionMapPath(project))
+		}";
 			import type { DependenciesSnake, DependenciesCamel } from "./dependencies.d.ts";
 			import config from "./runtime_config.ts";
 			import { serverHandler } from "${serverTsPath}";
@@ -145,7 +157,9 @@ function generateModImports(project: Project, opts: BuildOpts, helper: Generated
 		for (const script of mod.scripts.values()) {
 			const runIdent = `modules$$${mod.name}$$${script.name}$$run`;
 
-			modImports += `import { run as ${runIdent} } from '${helper.relative(mod.path + "/scripts/" + script.name + ".ts")}';\n`;
+			modImports += `import { run as ${runIdent} } from '${
+				helper.relative(mod.path + "/scripts/" + script.name + ".ts")
+			}';\n`;
 
 			modConfig += `${JSON.stringify(script.name)}: {`;
 			modConfig += `run: ${runIdent},`;

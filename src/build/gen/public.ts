@@ -23,10 +23,10 @@ export async function compilePublic(project: Project) {
 
 		await reexporter.write();
 	}
-	
+
 	// Re-export public modules for module.gen.ts. This gets imported as
 	// `Module` in the module.gen.ts.
-	// 
+	//
 	// This exports the dependencies (the `genModulePublicInternal` files) with
 	// their given module names.
 	for (const module of project.modules.values()) {
@@ -34,7 +34,7 @@ export async function compilePublic(project: Project) {
 
 		for (const depName of Object.keys(module.config.dependencies || {})) {
 			const dependency = project.modules.get(depName)!;
-			
+
 			const internalPath = reexporter.relative(genModulePublicInternal(project, dependency));
 
 			reexporter.append`

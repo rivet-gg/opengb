@@ -1,7 +1,7 @@
 import runtimeArchive from "../../artifacts/runtime_archive.json" with { type: "json" };
 import { dirname, emptyDir, resolve } from "../deps.ts";
 import { Project } from "../project/mod.ts";
-import { RUNTIME_PATH, genPath } from "../project/project.ts";
+import { genPath, RUNTIME_PATH } from "../project/project.ts";
 
 /**
  * Writes a copy of the OpenGB runtime bundled with the CLI to the project.
