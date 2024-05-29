@@ -5,6 +5,7 @@ import { CommandError } from "../error/mod.ts";
 import { autoGenHeader } from "./misc.ts";
 import { BuildOpts, DbDriver, Runtime } from "./mod.ts";
 import { dedent } from "./deps.ts";
+import { GeneratedCodeBuilder } from "./gen/code_builder.ts";
 
 // Read source files as strings
 const ACTOR_SOURCE = await Deno.readTextFile(resolve(dirname(fromFileUrl(import.meta.url)), "../dynamic/actor.ts"));
@@ -14,9 +15,15 @@ const ACTOR_CF_SOURCE = await Deno.readTextFile(
 
 export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	const runtimeModPath = genRuntimeModPath(project);
+	const configPath = genPath(project, RUNTIME_CONFIG_PATH);
+	const entrypointPath = genPath(project, ENTRYPOINT_PATH);
+	const actorPath = genPath(project, ACTOR_PATH);
+	const configHelper = new GeneratedCodeBuilder(configPath);
+	const entrypointHelper = new GeneratedCodeBuilder(entrypointPath);
+	const actorHelper = new GeneratedCodeBuilder(actorPath);
 
 	// Generate module configs
-	const [modImports, modConfig] = generateModImports(project, opts);
+	const [modImports, modConfig] = generateModImports(project, opts, configHelper);
 
 	let imports = "";
 
@@ -35,8 +42,8 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	}
 
 	let compat = "";
-	let actorSource = `
-		import { Config } from "${runtimeModPath}";
+	actorHelper.append`
+		import { Config } from "${actorHelper.relative(runtimeModPath)}";
 		import config from "./runtime_config.ts";
 	`;
 
@@ -47,15 +54,15 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			const require = createRequire(import.meta.url);
 			`;
 
-		actorSource += ACTOR_SOURCE;
+		actorHelper.append`${ACTOR_SOURCE}`;
 	} else {
-		actorSource += ACTOR_CF_SOURCE;
+		actorHelper.append`${ACTOR_CF_SOURCE}`;
 	}
 
 	// Generate config.ts
-	const configSource = `
+	configHelper.append`
 		${autoGenHeader()}
-		import { Config } from "${runtimeModPath}";
+		import { Config } from "${configHelper.relative(runtimeModPath)}";
 
 		${compat}
 		${imports}
@@ -64,17 +71,21 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 		export default {
 			modules: ${modConfig},
 		} as Config;
-		`;
+	`;
 
 	// Generate entrypoint.ts
 	let entrypointSource = "";
 
 	if (opts.runtime == Runtime.Deno) {
-		entrypointSource = `
+		entrypointHelper.append`
 			${autoGenHeader()}
-			import { Runtime } from "${runtimeModPath}";
-			import { dependencyCaseConversionMap } from "${genDependencyCaseConversionMapPath(project)}";
-			import { actorCaseConversionMap } from "${genActorCaseConversionMapPath(project)}";
+			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
+			import { dependencyCaseConversionMap } from "${
+			entrypointHelper.relative(genDependencyCaseConversionMapPath(project))
+		}";
+			import { actorCaseConversionMap } from "${
+				entrypointHelper.relative(genActorCaseConversionMapPath(project))
+		}";
 			import type { DependenciesSnake, DependenciesCamel } from "./dependencies.d.ts";
 			import type { ActorsSnake, ActorsCamel } from "./actors.d.ts";
 			import config from "./runtime_config.ts";
@@ -93,19 +104,23 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			}
 
 			main();
-			`;
+		`;
 	} else if (opts.runtime == Runtime.Cloudflare) {
 		const runtimePath = genPath(project, RUNTIME_PATH);
-		const serverTsPath = resolve(runtimePath, "src", "runtime", "server.ts");
-		const errorTsPath = resolve(runtimePath, "src", "runtime", "error.ts");
+		const serverTsPath = entrypointHelper.relative(resolve(runtimePath, "src", "runtime", "server.ts"));
+		const errorTsPath = entrypointHelper.relative(resolve(runtimePath, "src", "runtime", "error.ts"));
 
-		entrypointSource = `
+		entrypointHelper.append`
 			${autoGenHeader()}
 			import type { IncomingRequestCf } from 'https://raw.githubusercontent.com/skymethod/denoflare/v0.6.0/common/cloudflare_workers_types.d.ts';
-			import { Runtime } from "${runtimeModPath}";
+			import { Runtime } from "${entrypointHelper.relative(runtimeModPath)}";
 			import { RuntimeError } from "${errorTsPath}";
-			import { dependencyCaseConversionMap } from "${genDependencyCaseConversionMapPath(project)}";
-			import { actorCaseConversionMap } from "${genActorCaseConversionMapPath(project)}";
+			import { dependencyCaseConversionMap } from "${
+			entrypointHelper.relative(genDependencyCaseConversionMapPath(project))
+		}";
+			import { actorCaseConversionMap } from "${
+				entrypointHelper.relative(genActorCaseConversionMapPath(project))
+		}";
 			import type { DependenciesSnake, DependenciesCamel } from "./dependencies.d.ts";
 			import type { ActorsSnake, ActorsCamel } from "./actors.d.ts";
 			import config from "./runtime_config.ts";
@@ -145,30 +160,23 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	}
 
 	// Write files
-	const distDir = resolve(project.path, "_gen");
-	const configPath = genPath(project, RUNTIME_CONFIG_PATH);
-	const entrypointPath = genPath(project, ENTRYPOINT_PATH);
-	const actorPath = genPath(project, ACTOR_PATH);
-
-	await Deno.mkdir(distDir, { recursive: true });
-	await Deno.writeTextFile(configPath, configSource);
-	await Deno.writeTextFile(entrypointPath, entrypointSource);
-	await Deno.writeTextFile(actorPath, actorSource);
+	configHelper.write();
+	entrypointHelper.write();
+	actorHelper.write();
 	await Deno.writeTextFile(
 		genPath(project, GITIGNORE_PATH),
 		".",
 	);
-	await Deno.writeTextFile(actorPath, actorSource);
 
 	// Format files
 	const fmtOutput = await new Deno.Command("deno", {
-		args: ["fmt", configPath, entrypointPath],
+		args: ["fmt", configPath, entrypointPath, actorPath],
 		signal: opts.signal,
 	}).output();
 	if (!fmtOutput.success) throw new CommandError("Failed to format generated files.", { commandOutput: fmtOutput });
 }
 
-function generateModImports(project: Project, opts: BuildOpts) {
+function generateModImports(project: Project, opts: BuildOpts, helper: GeneratedCodeBuilder): [string, string] {
 	let modImports = "";
 	let modConfig = "{";
 	for (const mod of project.modules.values()) {
@@ -179,7 +187,9 @@ function generateModImports(project: Project, opts: BuildOpts) {
 		for (const script of mod.scripts.values()) {
 			const runIdent = `modules$$${mod.name}$$${script.name}$$run`;
 
-			modImports += `import { run as ${runIdent} } from '${mod.path}/scripts/${script.name}.ts';\n`;
+			modImports += `import { run as ${runIdent} } from '${
+				helper.relative(mod.path + "/scripts/" + script.name + ".ts")
+			}';\n`;
 
 			modConfig += `${JSON.stringify(script.name)}: {`;
 			modConfig += `run: ${runIdent},`;
@@ -219,7 +229,7 @@ function generateModImports(project: Project, opts: BuildOpts) {
 		if (mod.db) {
 			const prismaImportName = `prisma$$${mod.name}`;
 			const prismaImportPath = genPrismaOutputBundle(project, mod);
-			modImports += `import ${prismaImportName} from ${JSON.stringify(prismaImportPath)};\n`;
+			modImports += `import ${prismaImportName} from ${JSON.stringify(helper.relative(prismaImportPath))};\n`;
 
 			modConfig += `db: {`;
 			modConfig += `name: ${JSON.stringify(mod.db.name)},`;

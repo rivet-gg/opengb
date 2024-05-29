@@ -5,7 +5,7 @@ import { CommandError, UserError } from "../error/mod.ts";
 import { addShutdownHandler } from "../utils/shutdown_handler.ts";
 import { verbose } from "../term/status.ts";
 import { createOnce, getOrInitOnce } from "../utils/once.ts";
-import { PRISMA_WORKSPACE_PATH, genPath } from "../project/project.ts";
+import { genPath, PRISMA_WORKSPACE_PATH } from "../project/project.ts";
 
 export const NODE_IMAGE = "node:21-alpine";
 // Unique container name for this runtime so we can run multiple instances in

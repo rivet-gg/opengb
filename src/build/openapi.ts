@@ -1,7 +1,7 @@
 import { resolve } from "../deps.ts";
 import { tjs } from "./deps.ts";
 import { Project } from "../project/mod.ts";
-import { OPEN_API_PATH, genPath } from "../project/project.ts";
+import { genPath, OPEN_API_PATH } from "../project/project.ts";
 
 // deno-lint-ignore no-explicit-any
 type OpenApiDefinition = any;

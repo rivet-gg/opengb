@@ -1,7 +1,7 @@
 import { move } from "../deps.ts";
 import { CommandError } from "../error/mod.ts";
 import { Project } from "../project/mod.ts";
-import { SDK_PATH, genPath } from "../project/project.ts";
+import { genPath, SDK_PATH } from "../project/project.ts";
 
 export enum SdkTarget {
 	TypeScript,

@@ -1,6 +1,7 @@
 import { CommandError, UserError } from "../error/mod.ts";
 import { Project } from "../project/mod.ts";
 import { verbose } from "../term/status.ts";
+import { isExternalDatabase } from "./db.ts";
 import { createOnce, getOrInitOnce } from "./once.ts";
 
 const CONTAINER_NAME = "opengb-postgres";
@@ -13,11 +14,15 @@ const POSTGRES_ONCE = createOnce<void>();
  */
 export async function ensurePostgresRunning(project: Project) {
 	return await getOrInitOnce(POSTGRES_ONCE, async () => {
-		await ensurePostgresRunningInner(project);
+		if (isExternalDatabase()) {
+			return;
+		}
+
+		await runPostgresDaemon(project);
 	});
 }
 
-async function ensurePostgresRunningInner(_project: Project) {
+async function runPostgresDaemon(_project: Project) {
 	verbose("Starting Postgres server...");
 
 	// Validate Docker is installed

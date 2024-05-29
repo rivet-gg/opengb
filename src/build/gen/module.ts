@@ -95,7 +95,7 @@ function genDependencies(
 	module: Module,
 	helper: GeneratedCodeBuilder,
 ) {
-	const typedefPath = genDependencyTypedefPath(project);
+	const typedefPath = helper.relative(genDependencyTypedefPath(project));
 
 	helper.append`
 		import type {
