@@ -2,6 +2,8 @@ import { tjs } from "./deps.ts";
 import { Project } from "../project/mod.ts";
 import { genPath, OPEN_API_PATH } from "../project/project.ts";
 
+export const DEFAULT_SERVER = "http://localhost:6420";
+
 // deno-lint-ignore no-explicit-any
 type OpenApiDefinition = any;
 
@@ -15,7 +17,7 @@ export async function generateOpenApi(project: Project) {
 		servers: [
 			{
 				"description": "Local",
-				"url": "http://localhost:6420",
+				"url": DEFAULT_SERVER,
 			},
 		],
 		tags: [

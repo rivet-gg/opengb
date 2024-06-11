@@ -7,7 +7,7 @@ import { buildArtifacts, rootSrcPath } from "./util.ts";
 
 await buildArtifacts({
 	rootPath: resolve(rootSrcPath(), "src", "dynamic"),
-	patterns: ["*.ts"],
+	patterns: ["**/*.ts"],
 	outputPath: resolve(rootSrcPath(), "artifacts", "dynamic_archive.json"),
 	encode: "string",
 });

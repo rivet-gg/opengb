@@ -27,11 +27,11 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	if (opts.dbDriver == DbDriver.NodePostgres) {
 		imports += `
 		// Import Prisma adapter for Postgres
-    //
-    // We can't use esm.sh for these because they rely on special Node
-    // functionality & don't need to be portable
-    //
-    // https://github.com/esm-dev/esm.sh/issues/684
+		//
+		// We can't use esm.sh for these because they rely on special Node
+		// functionality & don't need to be portable
+		//
+		// https://github.com/esm-dev/esm.sh/issues/684
 		import pg from "npm:pg@^8.11.3";
 		import { PrismaPg } from "npm:@prisma/adapter-pg@^5.12.0";
 		`;
