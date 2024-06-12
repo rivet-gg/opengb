@@ -20,8 +20,13 @@ sdkCommand
 			case "typescript":
 				targetSdk = SdkTarget.TypeScript;
 				break;
+			case "unity":
+				targetSdk = SdkTarget.Unity;
+				break;
 			default:
-				throw new UserError(`Unknown target: ${target}`, { suggest: "Supported targets: typescript" });
+				throw new UserError(`Unknown target: ${target}`, {
+					suggest: "Supported targets: typescript, csharp",
+				});
 		}
 
 		const project = await initProject(opts);

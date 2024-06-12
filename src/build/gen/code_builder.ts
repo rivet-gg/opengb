@@ -118,9 +118,15 @@ export class GeneratedCodeBuilder {
 		return this;
 	}
 
-	public async write() {
+	public async write(fmt: boolean = true) {
 		if (!this.path) throw new Error("Cannot write a file without a path");
-		await mkdirWriteFmt(this.path, this.toString(true));
+
+		if (fmt) {
+			await mkdirWriteFmt(this.path, this.toString(true));
+		} else {
+			await mkdirFor(this.path);
+			await Deno.writeTextFile(this.path, this.toString(true));
+		}
 	}
 
 	public toString(includeHeader = true) {

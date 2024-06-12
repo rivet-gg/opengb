@@ -1,5 +1,6 @@
 export function camelify(snake: string) {
-	return snake.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+	const partial = snake.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+	return partial[0].toLowerCase() + partial.slice(1);
 }
 
 export function pascalify(snake: string) {

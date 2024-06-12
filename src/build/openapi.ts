@@ -37,13 +37,13 @@ export async function generateOpenApi(project: Project) {
 			const requestBodyRef = injectSchema(
 				schema,
 				script.requestSchema!,
-				`${mod.name}__${script.name}__request`,
+				`${mod.name}__${script.name}`,
 				"Request",
 			);
 			const responseContentRef = injectSchema(
 				schema,
 				script.responseSchema!,
-				`${mod.name}__${script.name}__response`,
+				`${mod.name}__${script.name}`,
 				"Response",
 			);
 			schema.paths[`/modules/${mod.name}/scripts/${script.name}/call`] = {
