@@ -1,6 +1,6 @@
 import { camelify, pascalify } from "../../types/case_conversions.ts";
 import { exists, glob, resolve } from "../../deps.ts";
-import { GeneratedCodeBuilder } from "../../build/gen/code_builder.ts";
+import { GeneratedCodeBuilder, Lang } from "../../build/gen/code_builder.ts";
 import { Project } from "../../project/mod.ts";
 import { dedent } from "../../build/deps.ts";
 
@@ -62,7 +62,11 @@ async function modifyModels(project: Project, sdkGenPath: string) {
 
 async function generateApiClient(project: Project, sdkGenPath: string) {
 	// Update index to only export our custom api
-	const apiBuilder = new GeneratedCodeBuilder(resolve(sdkGenPath, "src", "Org.OpenAPITools", "Api", "Backend.cs"));
+	const apiBuilder = new GeneratedCodeBuilder(
+		resolve(sdkGenPath, "src", "Org.OpenAPITools", "Api", "Backend.cs"),
+		2,
+		Lang.CSharp,
+	);
 
 	const modules = apiBuilder.chunk;
 
@@ -85,7 +89,7 @@ async function generateApiClient(project: Project, sdkGenPath: string) {
 		`,
 	);
 
-	await apiBuilder.write(false);
+	await apiBuilder.write();
 }
 
 async function generateModuleApiClients(project: Project, sdkGenPath: string) {
@@ -104,6 +108,8 @@ async function generateModuleApiClients(project: Project, sdkGenPath: string) {
 		// Create module api class
 		const moduleApiBuilder = new GeneratedCodeBuilder(
 			resolve(sdkGenPath, "src", "Org.OpenAPITools", "Api", "Modules", `${moduleNamePascal}.cs`),
+			2,
+			Lang.CSharp,
 		);
 
 		const scripts = moduleApiBuilder.chunk;
@@ -219,12 +225,12 @@ async function generateModuleApiClients(project: Project, sdkGenPath: string) {
 			`,
 		);
 
-		await moduleApiBuilder.write(false);
+		await moduleApiBuilder.write();
 	}
 }
 
 async function generateFreeFormInterface(moduleName: string, interfaceName: string, dataName: string, path: string) {
-	const schemaBuilder = new GeneratedCodeBuilder(path);
+	const schemaBuilder = new GeneratedCodeBuilder(path, 2, Lang.CSharp);
 
 	schemaBuilder.appendRaw(`
 		using System;
@@ -280,7 +286,7 @@ async function generateFreeFormInterface(moduleName: string, interfaceName: stri
 		}
 	`);
 
-	await schemaBuilder.write(false);
+	await schemaBuilder.write();
 }
 
 function apiClassTemplate(name: string) {

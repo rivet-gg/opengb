@@ -23,9 +23,12 @@ sdkCommand
 			case "unity":
 				targetSdk = SdkTarget.Unity;
 				break;
+			case "godot":
+				targetSdk = SdkTarget.Godot;
+				break;
 			default:
 				throw new UserError(`Unknown target: ${target}`, {
-					suggest: "Supported targets: typescript, csharp",
+					suggest: "Supported targets: typescript, untiy, godot",
 				});
 		}
 
