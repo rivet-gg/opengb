@@ -4,8 +4,6 @@ import { GeneratedCodeBuilder } from "../../build/gen/code_builder.ts";
 import { Project } from "../../project/mod.ts";
 import dynamicArchive from "../../../artifacts/dynamic_archive.json" with { type: "json" };
 
-export const BASE_PATH = "${DEFAULT_SERVER}".replace(/\/+$/, "");
-
 export async function generateTypescriptAddons(project: Project, sdkGenPath: string) {
 	// HACK: Fix sloppy imports
 	const files = await glob.glob(["**/*.ts"], { cwd: sdkGenPath, nodir: true });
@@ -81,8 +79,8 @@ async function generateApiClients(project: Project, sdkGenPath: string) {
 		for (const script of mod.scripts.values()) {
 			const scriptNameCamel = camelify(script.name);
 			const scriptNamePascal = pascalify(script.name);
-			const requestName = `${moduleNamePascal}${scriptNamePascal}RequestRequest`;
-			const responseName = `${moduleNamePascal}${scriptNamePascal}ResponseResponse`;
+			const requestName = `${moduleNamePascal}${scriptNamePascal}Request`;
+			const responseName = `${moduleNamePascal}${scriptNamePascal}Response`;
 			const path = `/modules/${mod.name}/scripts/${script.name}/call`;
 
 			// Generate missing free-form objects
@@ -161,9 +159,7 @@ async function generateApiClients(project: Project, sdkGenPath: string) {
 }
 
 async function generateFreeFormInterface(interfaceName: string, path: string) {
-	const schemaBuilder = new GeneratedCodeBuilder(
-		path,
-	);
+	const schemaBuilder = new GeneratedCodeBuilder(path);
 
 	schemaBuilder.append`
 		/* tslint:disable */
