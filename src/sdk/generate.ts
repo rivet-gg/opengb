@@ -41,12 +41,6 @@ export async function generateSdk(
 	target: SdkTarget,
 	output: string,
 ) {
-	// Warn if trying to run inside of Docker
-	if (Deno.env.has("RUNNING_IN_DOCKER")) {
-		warn("Skipping Postgres Dev Server", "Cannot start Postgres dev server when running OpenGB inside of Docker");
-		return;
-	}
-
 	const targetString = targetToString(target);
 	const sdkGenPath = resolve(genPath(project, SDK_PATH), targetString);
 
@@ -62,23 +56,45 @@ export async function generateSdk(
 	progress("Building SDK", targetString);
 
 	const config = GENERATORS[target]!;
-	const buildOutput = await new Deno.Command("docker", {
-		args: [
-			"run",
-			"--rm",
-			"-v",
-			`${project.path}:/local`,
-			"openapitools/openapi-generator-cli:v7.6.0",
-			"generate",
-			"-i",
-			"/local/.opengb/openapi.json",
-			"-g",
-			config.generator,
-			"-o",
-			`/local/.opengb/sdk/${targetString}`,
-			"--additional-properties=" + Object.entries(config.options).map(([key, value]) => `${key}=${value}`).join(","),
-		],
-	}).output();
+	let buildOutput;
+
+	// Run using deno when in docker
+	if (Deno.env.has("RUNNING_IN_DOCKER")) {
+		buildOutput = await new Deno.Command("deno", {
+			args: [
+				"run",
+				"-A",
+				"npm:@openapitools/openapi-generator-cli@2.13.4",
+				"generate",
+				"-i",
+				`${project.path}/.opengb/openapi.json`,
+				"-g",
+				config.generator,
+				"-o",
+				`${project.path}/.opengb/sdk/${targetString}`,
+				"--additional-properties=" + Object.entries(config.options).map(([key, value]) => `${key}=${value}`).join(","),
+			],
+		}).output();
+	} else {
+		buildOutput = await new Deno.Command("docker", {
+			args: [
+				"run",
+				"--rm",
+				"-v",
+				`${project.path}:/local`,
+				"openapitools/openapi-generator-cli:v7.6.0",
+				"generate",
+				"-i",
+				"/local/.opengb/openapi.json",
+				"-g",
+				config.generator,
+				"-o",
+				`/local/.opengb/sdk/${targetString}`,
+				"--additional-properties=" + Object.entries(config.options).map(([key, value]) => `${key}=${value}`).join(","),
+			],
+		}).output();
+	}
+
 	if (!buildOutput.success) {
 		throw new CommandError("Failed to generate OpenAPI SDK.", { commandOutput: buildOutput });
 	}
