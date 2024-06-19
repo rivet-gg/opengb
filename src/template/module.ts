@@ -13,7 +13,7 @@ export async function templateModule(project: Project, moduleName: string) {
 		throw new UserError("Module already exists.");
 	}
 
-	// Create directires
+	// Create directories
 	const modulePath = resolve(localModulesPath, moduleName);
 	await Deno.mkdir(modulePath);
 	await Deno.mkdir(resolve(modulePath, "scripts"));

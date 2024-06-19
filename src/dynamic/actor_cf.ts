@@ -1,4 +1,4 @@
-// This file is only imported when the runtime is `Cloudflare`. See `actor.ts` in the same directory.
+// This file is only imported when the runtime is `Cloudflare`. See `actor_deno.ts` in the same directory.
 
 // This import comes directly from the workers runtime
 import { DurableObject } from "cloudflare:workers";
