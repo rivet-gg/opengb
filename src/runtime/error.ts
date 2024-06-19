@@ -97,7 +97,6 @@ export class RuntimeError extends Error {
 		if (this.errorConfig?.description) {
 			message += `: ${this.errorConfig.description}`;
 		}
-		message += `\nTrace: ${JSON.stringify(this.trace)}`;
 		this.message = message;
 	}
 }

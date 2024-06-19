@@ -133,6 +133,7 @@ export async function handleRequest<DependenciesSnakeT, DependenciesCamelT, Acto
 		// Error response
 		const output = {
 			message: e.message,
+			trace: e.trace,
 		};
 
 		return new Response(JSON.stringify(output), {
