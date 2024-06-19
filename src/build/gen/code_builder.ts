@@ -2,6 +2,12 @@ import { dedent } from "../deps.ts";
 import { dirname, formatPath, isAbsolute, parsePath, relative, resolve } from "../../deps.ts";
 import { autoGenHeader } from "../misc.ts";
 
+export enum Lang {
+	Typescript,
+	CSharp,
+	GDScript,
+}
+
 function ensureRelativePrefixed(path: string) {
 	if (isAbsolute(path)) return path;
 
@@ -18,6 +24,7 @@ export class GeneratedCodeBuilder {
 	public constructor(
 		public path?: string,
 		private newlinesPerChunk = 2,
+		private lang: Lang = Lang.Typescript,
 	) {}
 
 	public static from(...args: Parameters<typeof dedent>) {
@@ -118,10 +125,10 @@ export class GeneratedCodeBuilder {
 		return this;
 	}
 
-	public async write(fmt: boolean = true) {
+	public async write() {
 		if (!this.path) throw new Error("Cannot write a file without a path");
 
-		if (fmt) {
+		if (this.lang == Lang.Typescript) {
 			await mkdirWriteFmt(this.path, this.toString(true));
 		} else {
 			await mkdirFor(this.path);
@@ -140,7 +147,9 @@ export class GeneratedCodeBuilder {
 		}
 
 		if (includeHeader) {
-			return `${autoGenHeader()}${this.newlines}${source}`;
+			const commentChar = this.lang == Lang.GDScript ? "#" : "//";
+
+			return `${autoGenHeader(commentChar)}${this.newlines}${source}`;
 		} else {
 			return source;
 		}
