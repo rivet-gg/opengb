@@ -71,6 +71,53 @@ export async function generateOpenApi(project: Project) {
 				},
 			};
 		}
+
+		for (const route of mod.routes.values()) {
+			let methods: string[];
+			if (route.config.method) {
+				methods = [route.config.method.toLowerCase()];
+			} else {
+				methods = ["get", "post", "put", "patch", "delete"];
+			}
+
+			const methodConfig: Record<string, unknown> = {
+				description: `Call ${mod.name}.${route.name} route.`,
+				tags: ["Backend"],
+				operationId: `call_${mod.name}_${route.name}`,
+				responses: {
+					default: {
+						description: "A route-defined custom response",
+					},
+				},
+			};
+
+			let openApiPath: string;
+			if ("path" in route.config) {
+				openApiPath = route.config.path;
+			} else {
+				openApiPath = route.config.pathPrefix + "{path}";
+				methodConfig.parameters = [
+					{
+						name: "path",
+						in: "path",
+						required: true,
+						schema: {
+							type: "string",
+							format: "path",
+						},
+					},
+				];
+			}
+
+			schema.paths[openApiPath] = {
+				summary: route.config.name,
+				description: route.config.description,
+			};
+
+			for (const method of methods) {
+				schema.paths[openApiPath][method] = methodConfig;
+			}
+		}
 	}
 
 	await Deno.writeTextFile(

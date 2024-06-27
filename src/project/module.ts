@@ -4,12 +4,73 @@ import { configPath as moduleConfigPath, readConfig as readModuleConfig } from "
 import { ModuleConfig } from "../config/module.ts";
 import { Script } from "./script.ts";
 import { Actor } from "./actor.ts";
+import { Route } from "./route.ts";
 import { Project } from "./project.ts";
 import { Registry } from "./registry.ts";
 import { validateIdentifier } from "../types/identifiers/mod.ts";
 import { Casing } from "../types/identifiers/defs.ts";
-import { ProjectModuleConfig } from "../config/project.ts";
+import { configPath as projectConfigPath, ProjectModuleConfig } from "../config/project.ts";
 import { UserError } from "../error/mod.ts";
+import { RouteConfig } from "../config/module.ts";
+
+/**
+ * Validates a path provided by the user.
+ *
+ * If the path is invalid, a {@linkcode UserError} is thrown, otherwise a version of
+ * the path without leading or trailing slashes is returned.
+ *
+ * Paths must:
+ * - Start with a forward slash
+ * - IF they are a prefix, end with a forward slash
+ * - IF they are an exact path, NOT end with a forward slash
+ *
+ * @param path The user-provided http path
+ * @param isPrefix Whether or not the path should be treated as a prefix
+ * @param configPath Where the (possibly) offending config file is located
+ * @returns The path without any leading or trailing slashes
+ * @throws {UserError} if the path is invalid
+ */
+function validateAndCleanPath(
+	path: string,
+	isPrefix: boolean,
+	configPath: string,
+): string {
+	// Ensure path starts with a forward slash
+	if (!path.startsWith("/")) {
+		throw new UserError(
+			"Route paths must start with a forward slash",
+			{
+				path: configPath,
+				details: `Got ${JSON.stringify(path)}`,
+				suggest: `Change this to ${JSON.stringify("/" + path)}`,
+			},
+		);
+	}
+
+	const hasTrailingSlash = path.endsWith("/");
+	if (isPrefix && !hasTrailingSlash) {
+		throw new UserError(
+			"Prefix paths must end with a forward slash",
+			{
+				path: configPath,
+				details: `Got ${JSON.stringify(path)}`,
+				suggest: `Change this to ${JSON.stringify(path + "/")}`,
+			},
+		);
+	} else if (!isPrefix && hasTrailingSlash) {
+		throw new UserError(
+			"Exact paths must not end with a forward slash",
+			{
+				path: configPath,
+				details: `Got ${JSON.stringify(path)}`,
+				suggest: `Change this to ${JSON.stringify(path.replace(/\/$/, ""))}`,
+			},
+		);
+	}
+
+	// Remove leading and trailing slashes
+	return path.replace(/^\//, "").replace(/\/$/, "");
+}
 
 export interface Module {
 	/**
@@ -49,6 +110,7 @@ export interface Module {
 
 	scripts: Map<string, Script>;
 	actors: Map<string, Actor>;
+	routes: Map<string, Route>;
 	db?: ModuleDatabase;
 
 	// Cache
@@ -61,6 +123,7 @@ export interface ModuleDatabase {
 }
 
 export async function loadModule(
+	projectRoot: string,
 	modulePath: string,
 	name: string,
 	projectModuleConfig: ProjectModuleConfig,
@@ -118,6 +181,8 @@ export async function loadModule(
 		);
 	}
 
+	// ACTORS
+
 	// Find names of the expected actors to find. Used to print error for extra actors.
 	const actorsPath = resolve(modulePath, "actors");
 	const expectedActors = new Set(
@@ -164,6 +229,104 @@ export async function loadModule(
 		);
 	}
 
+	// ROUTES
+
+	// Read routes
+	const routesPath = resolve(modulePath, "routes");
+	const expectedRoutes = new Set(
+		await glob.glob("*.ts", { cwd: resolve(modulePath, "routes") }),
+	);
+
+	const routes = new Map<string, Route>();
+	if (config.routes) {
+		let pathPrefix: string;
+		if (projectModuleConfig.routes?.pathPrefix) {
+			pathPrefix = validateAndCleanPath(
+				projectModuleConfig.routes.pathPrefix,
+				true,
+				projectConfigPath(projectRoot),
+			);
+		} else {
+			// Default to /modules/{module}/route/ for the path prefix
+			pathPrefix = validateAndCleanPath(
+				`/modules/${name}/route/`,
+				true,
+				projectConfigPath(projectRoot),
+			);
+		}
+
+		for (const routeName in config.routes) {
+			validateIdentifier(routeName, Casing.Snake);
+
+			// Load script
+			const routeScriptPath = resolve(
+				routesPath,
+				routeName + ".ts",
+			);
+			if (!await exists(routeScriptPath)) {
+				throw new UserError(
+					`Route not found at ${relative(Deno.cwd(), routeScriptPath)}.`,
+					{
+						suggest: "Check the routes in the module.yaml are configured correctly.",
+						path: moduleConfigPath(modulePath),
+					},
+				);
+			}
+
+			// Get full route path (including module prefix)
+			const relativeRouteConfig = config.routes[routeName];
+
+			// Get subpath (either path or pathPrefix)
+			let subpath: string;
+			if ("path" in relativeRouteConfig) {
+				subpath = validateAndCleanPath(
+					relativeRouteConfig.path,
+					false,
+					moduleConfigPath(modulePath),
+				);
+			} else {
+				subpath = validateAndCleanPath(
+					relativeRouteConfig.pathPrefix,
+					true,
+					moduleConfigPath(modulePath),
+				);
+			}
+
+			// Create route config with absolute path
+			let routeConfig: RouteConfig;
+			if ("path" in relativeRouteConfig) {
+				routeConfig = {
+					...relativeRouteConfig,
+					path: `/${pathPrefix}/${subpath}`,
+				};
+			} else {
+				routeConfig = {
+					...relativeRouteConfig,
+					pathPrefix: `/${pathPrefix}/${subpath}`,
+				};
+			}
+
+			const route: Route = {
+				path: routesPath,
+				name: routeName,
+				config: routeConfig,
+			};
+			routes.set(routeName, route);
+
+			// Remove script
+			expectedRoutes.delete(routeName + ".ts");
+		}
+	}
+
+	// Throw error extra routes
+	if (expectedRoutes.size > 0) {
+		const routeList = Array.from(expectedRoutes).map((x) => `- ${resolve(routesPath, x)}\n`);
+		throw new UserError(
+			`Found extra routes not registered in module.yaml.`,
+			{ details: routeList.join(""), suggest: "Add these routes to the module.yaml file.", path: routesPath },
+		);
+	}
+
 	// Verify error names
 	for (const errorName in config.errors) {
 		validateIdentifier(errorName, Casing.Snake);
@@ -197,6 +360,7 @@ export async function loadModule(
 		registry,
 		scripts,
 		actors,
+		routes,
 		db,
 	};
 }

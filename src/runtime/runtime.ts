@@ -1,12 +1,13 @@
 import { addFormats, Ajv } from "./deps.ts";
 import { ScriptContext } from "./context.ts";
-import { Context, TestContext } from "./context.ts";
+import { Context, RouteContext, TestContext } from "./context.ts";
 import { PgPoolDummy, Postgres, PrismaClientDummy } from "./postgres.ts";
-import { handleRequest } from "./server.ts";
+import { serverHandler } from "./server.ts";
 import { TraceEntryType } from "./trace.ts";
 import { newTrace } from "./trace.ts";
 import { RegistryCallMap } from "./proxy.ts";
 import { ActorDriver } from "./actor.ts";
+import { QualifiedPathPair } from "./path_resolver.ts";
 
 export interface Config {
 	runtime: BuildRuntime;
@@ -28,6 +29,7 @@ export enum BuildRuntime {
 export interface Module {
 	scripts: Record<string, Script>;
 	actors: Record<string, Actor>;
+	routes: Record<string, Route>;
 	errors: Record<string, ErrorConfig>;
 	db?: {
 		/** Name of the Postgres schema the tables live in. */
@@ -52,6 +54,22 @@ export interface Script {
 	public: boolean;
 }
 
+export interface RouteBase {
+	// deno-lint-ignore no-explicit-any
+	run: RouteRun<any, any, any>;
+	methods: Set<string>;
+}
+
+export interface PrefixRoute extends RouteBase {
+	pathPrefix: string;
+}
+
+export interface ExactRoute extends RouteBase {
+	path: string;
+}
+
+export type Route = ExactRoute | PrefixRoute;
+
 export type ScriptRun<Req, Res, UserConfigT, DatabaseT, DatabaseSchemaT> = (
 	ctx: ScriptContext<any, any, any, any, UserConfigT, DatabaseT, DatabaseSchemaT>,
 	req: Req,
@@ -61,6 +79,11 @@ export interface Actor {
 	actor: any;
 	storageId: string;
 }
+
+export type RouteRun<UserConfigT, DatabaseT, DatabaseSchemaT> = (
+	ctx: RouteContext<any, any, any, any, UserConfigT, DatabaseT, DatabaseSchemaT>,
+	req: Request,
+) => Promise<Response>;
 
 export interface ErrorConfig {
 	description?: string;
@@ -75,7 +98,7 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, Actor
 		public config: Config,
 		public actorDriver: ActorDriver,
 		private dependencyCaseConversionMap: RegistryCallMap,
-		private actorDependencyCaseConversionMap: RegistryCallMap,
+		private actorCaseConversionMap: RegistryCallMap,
 	) {
 		this.postgres = new Postgres();
 
@@ -97,7 +120,35 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, Actor
 			this,
 			newTrace(traceEntryType, this.config.runtime),
 			this.dependencyCaseConversionMap,
-			this.actorDependencyCaseConversionMap,
+			this.actorCaseConversionMap,
+		);
+	}
+
+	public createRootRouteContext(
+		traceEntryType: TraceEntryType,
+		moduleName: string,
+		routeName: string,
+	): RouteContext<
+		DependenciesSnakeT,
+		DependenciesCamelT,
+		ActorsSnakeT,
+		ActorsCamelT,
+		unknown,
+		PrismaClientDummy | undefined,
+		any
+	> {
+		const module = this.config.modules[moduleName];
+		if (!module) throw new Error(`Module not found: ${moduleName}`);
+
+		return new RouteContext(
+			this,
+			newTrace(traceEntryType),
+			moduleName,
+			this.postgres.getOrCreatePrismaClient(this.config, module),
+			module.db?.schema,
+			routeName,
+			this.dependencyCaseConversionMap,
+			this.actorCaseConversionMap,
 		);
 	}
 
@@ -107,10 +158,8 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, Actor
 	public async serve() {
 		const port = parseInt(Deno.env.get("PORT") ?? "6420");
 		console.log(`Serving on port ${port}`);
-		await Deno.serve(
-			{ port },
-			(req, info) => handleRequest(this, req, { remoteAddress: info.remoteAddr.hostname }),
-		).finished;
+
+		await Deno.serve({ port }, serverHandler(this)).finished;
 	}
 
 	/**
@@ -246,4 +295,30 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, Actor
 		if (!origin) return true;
 		return this.config.cors?.origins.has(origin) ?? false;
 	}
+
+	public routePaths(): QualifiedPathPair[] {
+		const paths: QualifiedPathPair[] = [];
+		for (const moduleName in this.config.modules) {
+			const module = this.config.modules[moduleName];
+			for (const routeName in module.routes) {
+				const route = module.routes[routeName];
+				if ("path" in route) {
+					paths.push({
+						module: moduleName,
+						route: routeName,
+						path: { path: route.path, isPrefix: false },
+					});
+				} else {
+					paths.push({
+						module: moduleName,
+						route: routeName,
+						path: { path: route.pathPrefix, isPrefix: true },
+					});
+				}
+			}
+		}
+		return paths;
+	}
 }
+
+export type PathPair = { path: string; isPrefix: boolean };

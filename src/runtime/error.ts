@@ -5,6 +5,7 @@ import { Trace } from "./trace.ts";
 
 export interface RuntimeErrorOptions extends ErrorOptions {
 	meta?: any;
+	statusCode?: number;
 }
 
 export class RuntimeError extends Error {
@@ -34,12 +35,19 @@ export class RuntimeError extends Error {
 	 */
 	public meta?: ErrorConfig;
 
+	/**
+	 * The status code to return if this error is propogated all the way to the
+	 * caller.
+	 */
+	public statusCode: number;
+
 	public constructor(
 		public readonly code: string,
 		options?: RuntimeErrorOptions,
 	) {
 		super(code, options);
 		this.meta = options?.meta;
+		this.statusCode = options?.statusCode ?? 500;
 	}
 
 	/**

@@ -9,6 +9,9 @@ import { validateIdentifier } from "../types/identifiers/mod.ts";
 import { Casing } from "../types/identifiers/defs.ts";
 import { loadDefaultRegistry } from "./registry.ts";
 import { UserError } from "../error/mod.ts";
+import { QualifiedPathPair } from "../runtime/path_resolver.ts";
+import { PathResolver } from "../runtime/path_resolver.ts";
+import { RouteCollisionError } from "../error/mod.ts";
 
 export interface Project {
 	path: string;
@@ -74,7 +77,7 @@ export async function loadProject(opts: LoadProjectOpts, signal?: AbortSignal): 
 			projectModuleName,
 			projectModuleConfig,
 		);
-		const module = await loadModule(path, projectModuleName, projectModuleConfig, registry, signal);
+		const module = await loadModule(projectRoot, path, projectModuleName, projectModuleConfig, registry, signal);
 		modules.set(projectModuleName, module);
 	}
 
@@ -123,6 +126,23 @@ export async function loadProject(opts: LoadProjectOpts, signal?: AbortSignal): 
 			path: projectConfigPath(projectRoot),
 		});
 	}
+
+	// Verify routes don't conflict
+	const routes: QualifiedPathPair[] = [];
+	for (const [moduleName, module] of modules.entries()) {
+		for (const [routeName, route] of module.routes.entries()) {
+			const isPrefix = "pathPrefix" in route.config;
+			const path = "pathPrefix" in route.config ? route.config.pathPrefix : route.config.path;
+			routes.push({
+				module: moduleName,
+				route: routeName,
+				path: { isPrefix, path },
+			});
+		}
+	}
+
+	const collisions = new PathResolver(routes).collisions;
+	if (collisions.length > 0) throw new RouteCollisionError(collisions);
 
 	return { path: projectRoot, config: projectConfig, registries, modules };
 }

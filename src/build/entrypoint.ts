@@ -236,6 +236,26 @@ function generateModImports(project: Project, opts: BuildOpts) {
 		}
 		modConfig += "},";
 
+		// Generate route configs
+		modConfig += "routes: {";
+		for (const route of mod.routes.values()) {
+			const handleIdent = `modules$$${mod.name}$$${route.name}$$route$$handle`;
+
+			modImports += `import { handle as ${handleIdent} } from '${mod.path}/routes/${route.name}.ts';\n`;
+
+			modConfig += `${JSON.stringify(route.name)}: {`;
+			modConfig += `run: ${handleIdent},`;
+			const methods = route.config.method ? [route.config.method] : ["GET", "POST", "PUT", "PATCH", "DELETE"];
+			modConfig += `methods: new Set(${JSON.stringify(methods)}),`;
+			if ("path" in route.config) {
+				modConfig += `path: ${JSON.stringify(route.config.path)},`;
+			} else {
+				modConfig += `pathPrefix: ${JSON.stringify(route.config.pathPrefix)},`;
+			}
+			modConfig += `},`;
+		}
+		modConfig += "},";
+
 		// Generate error configs
 		modConfig += `errors: ${JSON.stringify(mod.config.errors)},`;
 
