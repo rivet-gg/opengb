@@ -97,9 +97,10 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			import config from "./runtime_config.ts";
 			import { ActorDriver } from ${JSON.stringify(actorDriverPath)};
 
-			const runtime = new Runtime<
-				DependenciesSnake, DependenciesCamel
-			>(
+			const runtime = new Runtime<{
+        dependenciesSnake: DependenciesSnake,
+        dependenciesCamel: DependenciesCamel,
+      }>(
 				config,
 				new ActorDriver(config),
 				dependencyCaseConversionMap,
@@ -133,9 +134,10 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
           ${denoEnvPolyfill()}
 
           // TODO(OGBE-159): Move this back to global scope after dbs are correctly isolated
-          const runtime = new Runtime<
-            DependenciesSnake, DependenciesCamel
-          >(
+          const runtime = new Runtime<{
+            dependenciesSnake: DependenciesSnake,
+            dependenciesCamel: DependenciesCamel,
+          }>(
             config,
             new ActorDriver(config),
             dependencyCaseConversionMap,

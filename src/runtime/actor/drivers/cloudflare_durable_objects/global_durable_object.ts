@@ -3,7 +3,7 @@ import { DurableObject } from "cloudflare:workers";
 import { CloudflareDurableObjectsStorage } from "./storage.ts";
 import { CloudflareDurableObjectsSchedule } from "./schedule.ts";
 import { ActorBase } from "../../actor.ts";
-import { Config } from "../../../mod.ts";
+import { Config, ModuleContextParams } from "../../../mod.ts";
 
 const KEYS = {
 	META: {
@@ -61,7 +61,7 @@ interface CallRpcOpts {
  * __GlobalDurableObject type used for referencing an instance of the class.
  */
 export interface __GlobalDurableObjectT extends DurableObject {
-	constructActor(): Promise<ActorBase<unknown, unknown>>;
+	constructActor(): Promise<ActorBase<ModuleContextParams, unknown, unknown>>;
 	init(opts: InitOpts): Promise<void>;
 	initialized(): Promise<boolean>;
 	getOrCreateAndCallRpc(opts: GetOrCreateAndCallOpts): Promise<any>;
@@ -84,7 +84,7 @@ export interface __GlobalDurableObjectT extends DurableObject {
 export function buildGlobalDurableObjectClass(config: Config) {
 	class __GlobalDurableObject extends DurableObject implements __GlobalDurableObjectT {
 		// TODO: optimize to use in-memory state
-		async constructActor(): Promise<ActorBase<unknown, unknown>> {
+		async constructActor(): Promise<ActorBase<ModuleContextParams, unknown, unknown>> {
 			// Create actor instance
 			const storageRes = await this.ctx.storage.get<string>([KEYS.META.MODULE, KEYS.META.ACTOR, KEYS.STATE]);
 			const moduleName = storageRes.get(KEYS.META.MODULE);
@@ -104,7 +104,7 @@ export function buildGlobalDurableObjectClass(config: Config) {
 			// Run actor function
 			const storage = new CloudflareDurableObjectsStorage(this);
 			const schedule = new CloudflareDurableObjectsSchedule(this);
-			const actor = new (actorConfig.actor)(storage, schedule, state);
+			const actor = new (actorConfig.actor)(config, storage, schedule, state);
 
 			return actor;
 		}

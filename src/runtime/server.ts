@@ -1,4 +1,5 @@
 import { RuntimeError } from "./error.ts";
+import { ModuleContextParams } from "./mod.ts";
 import { Runtime } from "./runtime.ts";
 
 const MODULE_CALL = /^\/modules\/(?<module>\w+)\/scripts\/(?<script>\w+)\/call\/?$/;
@@ -7,8 +8,8 @@ interface RequestInfo {
 	remoteAddress: string;
 }
 
-export async function handleRequest<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>(
-	runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
+export async function handleRequest<Params extends ModuleContextParams>(
+	runtime: Runtime<Params>,
 	req: Request,
 	info: RequestInfo,
 ): Promise<Response> {

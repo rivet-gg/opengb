@@ -1,5 +1,6 @@
 import { ModuleContext } from "./context.ts";
 import { Context } from "./context.ts";
+import { ModuleContextParams } from "./mod.ts";
 import { ErrorConfig, Runtime } from "./runtime.ts";
 import { Trace } from "./trace.ts";
 
@@ -46,17 +47,10 @@ export class RuntimeError extends Error {
 	 * Called by `Context` when an error is caught.
 	 */
 	public enrich<
-		DependenciesSnakeT,
-		DependenciesCamelT,
-		Ctx extends Context<
-			DependenciesSnakeT,
-			DependenciesCamelT
-		>,
+		Params extends ModuleContextParams,
+		Ctx extends Context<Params>,
 	>(
-		runtime: Runtime<
-			DependenciesSnakeT,
-			DependenciesCamelT
-		>,
+		runtime: Runtime<Params>,
 		context: Ctx,
 	) {
 		// Add context to error

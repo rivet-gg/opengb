@@ -6,9 +6,14 @@ import { buildActorRegistryProxy, buildDependencyRegistryProxy, RegistryCallMap 
 import { DependencyScriptCallFunction } from "../types/registry.ts";
 import { camelify } from "../types/case_conversions.ts";
 
-export class Context<DependenciesSnakeT, DependenciesCamelT> {
+export interface ContextParams {
+	dependenciesSnake: any;
+	dependenciesCamel: any;
+}
+
+export class Context<Params extends ContextParams> {
 	public constructor(
-		protected readonly runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
+		protected readonly runtime: Runtime<Params>,
 		public readonly trace: Trace,
 		private readonly dependencyCaseConversionMap: RegistryCallMap,
 		protected readonly actorCaseConversionMap: RegistryCallMap,
@@ -18,7 +23,7 @@ export class Context<DependenciesSnakeT, DependenciesCamelT> {
 		return true;
 	}
 
-	public call: DependencyScriptCallFunction<this, DependenciesSnakeT> = async function (
+	public call: DependencyScriptCallFunction<this, Params["dependenciesSnake"]> = async function (
 		moduleName,
 		scriptName,
 		req,
@@ -95,7 +100,7 @@ export class Context<DependenciesSnakeT, DependenciesCamelT> {
 	};
 
 	public get modules() {
-		return buildDependencyRegistryProxy<DependenciesSnakeT, DependenciesCamelT>(
+		return buildDependencyRegistryProxy<Params>(
 			this,
 			this.dependencyCaseConversionMap,
 		);
@@ -158,24 +163,24 @@ export class Context<DependenciesSnakeT, DependenciesCamelT> {
 	}
 }
 
+export interface ModuleContextParams extends ContextParams {
+	actorsSnake: any;
+	actorsCamel: any;
+	userConfig: any;
+	database: any;
+	databaseSchema: any;
+}
+
 /**
  * Context for a module.
  */
-export class ModuleContext<
-	DependenciesSnakeT,
-	DependenciesCamelT,
-	ActorsSnakeT,
-	ActorsCamelT,
-	UserConfigT,
-	DatabaseT,
-	DatabaseSchemaT,
-> extends Context<DependenciesSnakeT, DependenciesCamelT> {
+export class ModuleContext<Params extends ModuleContextParams> extends Context<Params> {
 	public constructor(
-		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
+		runtime: Runtime<Params>,
 		trace: Trace,
 		public readonly moduleName: string,
-		public readonly db: DatabaseT,
-		public readonly dbSchema: DatabaseSchemaT,
+		public readonly db: Params["database"],
+		public readonly dbSchema: Params["databaseSchema"],
 		dependencyCaseConversionMap: RegistryCallMap,
 		actorCaseConversionMap: RegistryCallMap,
 	) {
@@ -189,12 +194,12 @@ export class ModuleContext<
 			.has(targetModuleName);
 	}
 
-	public get config(): UserConfigT {
-		return this.runtime.config.modules[this.moduleName].userConfig as UserConfigT;
+	public get config(): Params["userConfig"] {
+		return this.runtime.config.modules[this.moduleName].userConfig as Params["userConfig"];
 	}
 
 	public get actors() {
-		return buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
+		return buildActorRegistryProxy<Params["actorsSnake"], Params["actorsCamel"]>(
 			this.runtime,
 			// TODO: Find a better way of looking up the module name. We don't use
 			// camel -> snake conversions anymore for modules in actors.
@@ -206,29 +211,13 @@ export class ModuleContext<
 /**
  * Context for a script.
  */
-export class ScriptContext<
-	DependenciesSnakeT,
-	DependenciesCamelT,
-	ActorsSnakeT,
-	ActorsCamelT,
-	UserConfigT,
-	DatabaseT,
-	DatabaseSchemaT,
-> extends ModuleContext<
-	DependenciesSnakeT,
-	DependenciesCamelT,
-	ActorsSnakeT,
-	ActorsCamelT,
-	UserConfigT,
-	DatabaseT,
-	DatabaseSchemaT
-> {
+export class ScriptContext<Params extends ModuleContextParams> extends ModuleContext<Params> {
 	public constructor(
-		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
+		runtime: Runtime<Params>,
 		trace: Trace,
 		moduleName: string,
-		db: DatabaseT,
-		dbSchema: DatabaseSchemaT,
+		db: Params["database"],
+		dbSchema: Params["databaseSchema"],
 		public readonly scriptName: string,
 		dependencyCaseConversionMap: RegistryCallMap,
 		actorCaseConversionMap: RegistryCallMap,
@@ -240,20 +229,4 @@ export class ScriptContext<
 /**
  * Context for a test.
  */
-export class TestContext<
-	DependenciesSnakeT,
-	DependenciesCamelT,
-	ActorsSnakeT,
-	ActorsCamelT,
-	UserConfigT,
-	DatabaseT,
-	DatabaseSchemaT,
-> extends ModuleContext<
-	DependenciesSnakeT,
-	DependenciesCamelT,
-	ActorsSnakeT,
-	ActorsCamelT,
-	UserConfigT,
-	DatabaseT,
-	DatabaseSchemaT
-> {}
+export class TestContext<Params extends ModuleContextParams> extends ModuleContext<Params> {}

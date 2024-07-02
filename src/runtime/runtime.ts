@@ -1,5 +1,5 @@
 import { addFormats, Ajv } from "./deps.ts";
-import { ScriptContext } from "./context.ts";
+import { ModuleContextParams, ScriptContext } from "./context.ts";
 import { Context, TestContext } from "./context.ts";
 import { PgPoolDummy, Postgres, PrismaClientDummy } from "./postgres.ts";
 import { handleRequest } from "./server.ts";
@@ -8,6 +8,7 @@ import { newTrace } from "./trace.ts";
 import { RegistryCallMap } from "./proxy.ts";
 import { ActorDriver } from "./actor/driver.ts";
 import { ActorBase } from "./actor/actor.ts";
+import { ContextParams } from "./mod.ts";
 
 export interface Config {
 	runtime: BuildRuntime;
@@ -55,13 +56,23 @@ export interface Script {
 }
 
 export type ScriptRun<Req, Res, UserConfigT, DatabaseT, DatabaseSchemaT> = (
-	ctx: ScriptContext<any, any, any, any, UserConfigT, DatabaseT, DatabaseSchemaT>,
+	ctx: ScriptContext<{
+		dependenciesSnake: any;
+		dependenciesCamel: any;
+		actorsSnake: any;
+		actorsCamel: any;
+		userConfig: UserConfigT;
+		database: DatabaseT;
+		databaseSchema: DatabaseSchemaT;
+	}>,
 	req: Req,
 ) => Promise<Res>;
 
 export interface Actor {
 	// This monstrosity is to allow passing the constructor a subclass of ActorBase.
-	actor: new (...args: ConstructorParameters<typeof ActorBase<unknown, unknown>>) => ActorBase<unknown, unknown>;
+	actor: new (
+		...args: ConstructorParameters<typeof ActorBase<ModuleContextParams, unknown, unknown>>
+	) => ActorBase<ModuleContextParams, unknown, unknown>;
 	storageAlias: string;
 }
 
@@ -69,7 +80,7 @@ export interface ErrorConfig {
 	description?: string;
 }
 
-export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
+export class Runtime<Params extends ContextParams> {
 	public postgres: Postgres;
 
 	public ajv: Ajv.default;
@@ -95,7 +106,7 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 
 	public createRootContext(
 		traceEntryType: TraceEntryType,
-	): Context<DependenciesSnakeT, DependenciesCamelT> {
+	): Context<{ dependenciesSnake: Params["dependenciesSnake"]; dependenciesCamel: Params["dependenciesCamel"] }> {
 		return new Context(
 			this,
 			newTrace(traceEntryType, this.config.runtime),
@@ -119,13 +130,13 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 	/**
 	 * Registers a module test with the Deno runtime.
 	 */
-	public static test<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT>(
+	public static test<Params extends ModuleContextParams>(
 		config: Config,
 		actorDriver: ActorDriver,
 		moduleName: string,
 		testName: string,
 		fn: (
-			ctx: TestContext<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT, UserConfigT, any, any>,
+			ctx: TestContext<Params>,
 		) => Promise<void>,
 		dependencyCaseConversionMap: RegistryCallMap,
 		actorDependencyCaseConversionMap: RegistryCallMap,
@@ -138,7 +149,7 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 			sanitizeResources: false,
 
 			async fn() {
-				const runtime = new Runtime<DependenciesSnakeT, DependenciesCamelT>(
+				const runtime = new Runtime<Params>(
 					config,
 					actorDriver,
 					dependencyCaseConversionMap,
@@ -147,15 +158,7 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 
 				// Build context
 				const module = config.modules[moduleName];
-				const ctx = new TestContext<
-					DependenciesSnakeT,
-					DependenciesCamelT,
-					ActorsSnakeT,
-					ActorsCamelT,
-					UserConfigT,
-					PrismaClientDummy | undefined,
-					string | undefined
-				>(
+				const ctx = new TestContext<Params>(
 					runtime,
 					newTrace({
 						test: { module: moduleName, name: testName },

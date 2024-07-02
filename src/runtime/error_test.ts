@@ -2,14 +2,19 @@ import { unimplemented } from "https://deno.land/std@0.208.0/assert/unimplemente
 import { assertEquals, assertExists } from "../deps.ts";
 import { ModuleContext } from "./context.ts";
 import { RuntimeError } from "./error.ts";
-import { BuildRuntime, newTrace } from "./mod.ts";
+import { BuildRuntime, ModuleContextParams, newTrace } from "./mod.ts";
 import { Runtime } from "./runtime.ts";
 import { ActorDriver, CallOpts, CreateOpts, ExistsOpts, GetOrCreateAndCallOpts } from "./actor/driver.ts";
 
-type DependenciesSnake = { test_module: Record<string, never> };
-type DependenciesCamel = { testModule: Record<string, never> };
-interface ActorsSnake {}
-interface ActorsCamel {}
+interface Params extends ModuleContextParams {
+	dependenciesSnake: { test_module: Record<string, never> };
+	dependenciesCamel: { testModule: Record<string, never> };
+	actorsSnake: Record<never, never>;
+	actorsCamel: Record<never, never>;
+	userConfig: null;
+	database: undefined;
+	databaseSchema: undefined;
+}
 
 class DummyActorDriver implements ActorDriver {
 	createActor(_opts: CreateOpts): Promise<void> {
@@ -33,7 +38,7 @@ Deno.test("error", async () => {
 	const actorCaseConversionMap = {} as const;
 
 	// Setup
-	const runtime = new Runtime<DependenciesSnake, DependenciesCamel>(
+	const runtime = new Runtime<Params>(
 		{
 			runtime: BuildRuntime.Deno,
 			modules: {
@@ -57,15 +62,7 @@ Deno.test("error", async () => {
 		actorCaseConversionMap,
 	);
 
-	const moduleContext = new ModuleContext<
-		DependenciesSnake,
-		DependenciesCamel,
-		ActorsSnake,
-		ActorsCamel,
-		null,
-		undefined,
-		undefined
-	>(
+	const moduleContext = new ModuleContext<Params>(
 		runtime,
 		newTrace({ internalTest: {} }),
 		"test_module",

@@ -38,16 +38,16 @@ export async function compileModuleHelper(
 		.append`
 			import {
 				RuntimeError,
+				ModuleContextParams as ModuleContextParamsInner,
 				ModuleContext as ModuleContextInner,
-				Runtime,
 				TestContext as TestContextInner,
 				ScriptContext as ScriptContextInner,
+				Runtime,
 			} from "${runtimePath}";
 			import config from "${runtimeConfigPath}";
 			import { dependencyCaseConversionMap } from "${dependencyCaseConversionMapPath}";
 			import { actorCaseConversionMap } from "${actorCaseConversionMapPath}";
-
-      import { ActorBase } from ${JSON.stringify(genRuntimeActorPath(project))};
+      import { ActorBase as ActorBaseInner } from ${JSON.stringify(genRuntimeActorPath(project))};
 			import { ActorDriver } from ${JSON.stringify(genRuntimeActorDriverPath(project, opts.runtime))};
 		`;
 
@@ -65,7 +65,7 @@ export async function compileModuleHelper(
 
 	// Common exports
 	helper.chunk.append`
-			export { RuntimeError, ActorBase };
+			export { RuntimeError };
 		`;
 
 	// Gen blocks
@@ -74,8 +74,9 @@ export async function compileModuleHelper(
 	genDependencies(project, module, helper);
 	genActors(project, module, helper);
 	genModule(project, module, helper, importBlock, userConfigType);
-	genTest(project, module, helper, userConfigType);
-	genScript(project, module, helper, userConfigType);
+	genTest(project, module, helper);
+	genScript(project, module, helper);
+	genActor(project, module, helper);
 
 	// Write source
 	await helper.write();
@@ -220,15 +221,18 @@ function genModule(
 	// Export block
 	helper.chunk.withNewlinesPerChunk(2)
 		.append`
-			export type ModuleContext = ModuleContextInner<
-				DependenciesSnake,
-				DependenciesCamel,
-				ActorsSnake,
-				ActorsCamel,
-				${userConfigType},
-				${module.db ? "prisma.PrismaClient" : "undefined"},
-				${module.db ? "string" : "undefined"}
-			>;
+      interface ModuleContextParams extends ModuleContextParamsInner {
+        dependenciesSnake: DependenciesSnake;
+        dependenciesCamel: DependenciesCamel;
+        actorsSnake: ActorsSnake;
+        actorsCamel: ActorsCamel;
+        userConfig: ${userConfigType};
+        database: ${module.db ? "prisma.PrismaClient" : "undefined"};
+        databaseSchema: ${module.db ? "prisma.PrismaClient" : "undefined"};
+      }
+    `
+		.append`
+			export type ModuleContext = ModuleContextInner<ModuleContextParams>;
 		`;
 }
 
@@ -236,21 +240,12 @@ function genTest(
 	_project: Project,
 	module: Module,
 	helper: GeneratedCodeBuilder,
-	userConfigType: string,
 ) {
 	// Export block
 	helper.chunk.withNewlinesPerChunk(1)
 		.newline()
 		.append`
-			export type TestContext = TestContextInner<
-				DependenciesSnake,
-				DependenciesCamel,
-				ActorsSnake,
-				ActorsCamel,
-				${userConfigType},
-				${module.db ? "prisma.PrismaClient" : "undefined"},
-				${module.db ? "string" : "undefined"}
-			>;
+			export type TestContext = TestContextInner<ModuleContextParams>;
 		`;
 
 	// Test Block
@@ -273,22 +268,26 @@ function genTest(
 
 function genScript(
 	_project: Project,
-	module: Module,
+	_module: Module,
 	helper: GeneratedCodeBuilder,
-	userConfigType: string,
 ) {
 	// Export block
 	helper.chunk.withNewlinesPerChunk(1)
 		.newline()
 		.append`
-			export type ScriptContext = ScriptContextInner<
-				DependenciesSnake,
-				DependenciesCamel,
-				ActorsSnake,
-				ActorsCamel,
-				${userConfigType},
-				${module.db ? "prisma.PrismaClient" : "undefined"},
-				${module.db ? "string" : "undefined"}
-			>;
+			export type ScriptContext = ScriptContextInner<ModuleContextParams>;
+		`;
+}
+
+function genActor(
+	_project: Project,
+	_module: Module,
+	helper: GeneratedCodeBuilder,
+) {
+	// Export block
+	helper.chunk.withNewlinesPerChunk(1)
+		.newline()
+		.append`
+      export abstract class ActorBase<Input, State> extends ActorBaseInner<ModuleContextParams, Input, State> {}
 		`;
 }

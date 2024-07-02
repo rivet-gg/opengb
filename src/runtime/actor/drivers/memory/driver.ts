@@ -113,7 +113,7 @@ export class MemoryActorDriver implements ActorDriver {
 		const storage = new MemoryStorage(entry);
 		const schedule = new MemorySchedule(this, entry);
 		const state = entry.state ? JSON.parse(entry.state!) : undefined;
-		const actor = new (actorConfig.actor)(storage, schedule, state);
+		const actor = new (actorConfig.actor)(this.config, storage, schedule, state);
 
 		return actor;
 	}
