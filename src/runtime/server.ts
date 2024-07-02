@@ -8,7 +8,7 @@ interface RequestInfo {
 }
 
 export async function handleRequest<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>(
-	runtime: Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>,
+	runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
 	req: Request,
 	info: RequestInfo,
 ): Promise<Response> {
@@ -90,7 +90,7 @@ export async function handleRequest<DependenciesSnakeT, DependenciesCamelT, Acto
 	});
 
 	// Parse body
-	let body;
+	let body: any;
 	try {
 		body = await req.json();
 	} catch {

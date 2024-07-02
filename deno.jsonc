@@ -18,11 +18,10 @@
 		"docker:build": "docker build -t opengb -f cli.Dockerfile .",
 
 		// Generates schema
-		"artifacts:build:all": "deno task format && deno task artifacts:build:schema && deno task artifacts:build:runtime_archive && deno task artifacts:build:prisma_archive && deno task artifacts:build:dynamic_archive",
+		"artifacts:build:all": "deno task format && deno task artifacts:build:schema && deno task artifacts:build:runtime_archive && deno task artifacts:build:prisma_archive",
 		"artifacts:build:schema": "deno run --allow-env --allow-read --allow-write src/artifacts/build_schema.ts",
 		"artifacts:build:runtime_archive": "deno run --allow-env --allow-read --allow-write src/artifacts/build_runtime_archive.ts",
 		"artifacts:build:prisma_archive": "deno run --allow-env --allow-read --allow-write --allow-run src/artifacts/build_prisma_archive.ts",
-		"artifacts:build:dynamic_archive": "deno run --allow-env --allow-read --allow-write --allow-run src/artifacts/build_dynamic_archive.ts",
 
 		// Format
 		"format": "deno fmt src/",
@@ -50,5 +49,9 @@
 	"fmt": {
 		"lineWidth": 120,
 		"useTabs": true
-	}
+	},
+  "imports": {
+    // HACK: Allow using `deno check` with Cloudflare scripts
+    "cloudflare:workers": "npm:@cloudflare/workers-types"
+  }
 }

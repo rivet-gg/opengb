@@ -215,17 +215,6 @@ export function publicPath(module: Module): string {
 	return resolve(module.path, "public.ts");
 }
 
-export function moduleGenActorPath(
-	_project: Project,
-	module: Module,
-): string {
-	return resolve(
-		module.path,
-		"_gen",
-		"actor.ts",
-	);
-}
-
 export function testGenPath(_project: Project, module: Module): string {
 	return resolve(
 		module.path,

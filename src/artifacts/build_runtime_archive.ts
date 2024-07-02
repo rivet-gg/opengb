@@ -8,7 +8,7 @@ import { buildArtifacts, rootSrcPath } from "./util.ts";
 await buildArtifacts({
 	rootPath: rootSrcPath(),
 	patterns: [
-		"src/{runtime,types}/*.ts",
+		"src/{runtime,types}/**/*.ts",
 		"src/deps.ts",
 		"src/utils/db.ts",
 	],

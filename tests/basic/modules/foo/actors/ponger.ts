@@ -1,15 +1,26 @@
 import { ActorBase } from "../module.gen.ts";
 
-export class Actor extends ActorBase {
-	static buildState(input: any) {
-		return {};
-	}
+interface Input {
 
-	async addPong() {
-		let pongs = await this.storage.get("pongs") ?? 0;
-
-		await this.storage.put("pongs", pongs + 1);
-
-		return pongs + 1;
-	}
 }
+
+interface State {
+  pongs: number;
+}
+
+export class Actor extends ActorBase<Input, State> {
+	public initialize(_input: Input) {
+    return { pongs: 0 };
+	}
+
+  async addPong(count: number): Promise<number> {
+    this.state.pongs += count;
+    this.schedule.after(1000, "decreasePong", count);
+    return this.state.pongs;
+  }
+
+  async decreasePong(count: number) {
+    this.state.pongs -= count;
+  }
+}
+

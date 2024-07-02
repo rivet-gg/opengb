@@ -1,6 +1,6 @@
 import { Context, Runtime } from "../runtime/mod.ts";
 import { RequestOf, ResponseOf } from "../types/registry.ts";
-import { ActorProxy } from "./actor.ts";
+import { ActorProxy } from "./actor/proxy.ts";
 
 type ModuleRegistryPair = readonly [string, string];
 
@@ -48,7 +48,9 @@ type ModuleRegistryPair = readonly [string, string];
  * case keys from `ctx.modules.<camelMod>.<camelScript>(data);` to an
  * equivalent call to `ctx.call(<snake_mod>, <snake_script>, data);`.
  */
-export type RegistryCallMap = Record<string, Record<string, ModuleRegistryPair>>;
+export type RegistryCallMap = Record<string, ModuleCallMap>;
+
+export type ModuleCallMap = Record<string, ModuleRegistryPair>;
 
 /**
  * A callable registry is an object that describes the structure of
@@ -99,10 +101,8 @@ export type CallableDependencies<DependenciesT> = {
 /**
  * TODO: Comment
  */
-export type ActorProxies<ActorDependenciesT> = {
-	[Mod in keyof ActorDependenciesT]: {
-		[Actor in keyof ActorDependenciesT[Mod]]: ActorProxy;
-	};
+export type ActorProxies<ActorsT> = {
+	[Actor in keyof ActorsT]: ActorProxy;
 };
 
 /**
@@ -115,7 +115,7 @@ export type ActorProxies<ActorDependenciesT> = {
  * without the `ctx.call` function.
  */
 export function buildDependencyRegistryProxy<DependenciesSnakeT, DependenciesCamelT>(
-	ctx: Context<DependenciesSnakeT, DependenciesCamelT, any, any>,
+	ctx: Context<DependenciesSnakeT, DependenciesCamelT>,
 	dependenciesMapCamelToSnake: RegistryCallMap,
 ): CallableDependencies<DependenciesCamelT> {
 	const handler = {
@@ -144,29 +144,19 @@ export function buildDependencyRegistryProxy<DependenciesSnakeT, DependenciesCam
 }
 
 export function buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
-	runtime: Runtime<any, any, ActorsSnakeT, ActorsCamelT>,
-	actorMapCamelToSnake: RegistryCallMap,
+	runtime: Runtime<any, any>,
+	actorMap: ModuleCallMap,
 ): ActorProxies<ActorsCamelT> {
-	// TODO: Get rid of outer proxy (ctx.actors.foo.xxx -> ctx.actors.xxx)
-	const handler = {
-		get: (_target: unknown, moduleProp: string) => {
-			if (moduleProp in actorMapCamelToSnake) {
-				const moduleMap = actorMapCamelToSnake[moduleProp as keyof typeof actorMapCamelToSnake];
-
-				return new Proxy(moduleMap, {
-					get: (_target: unknown, scriptProp: string) => {
-						if (scriptProp in moduleMap) {
-							const pair = moduleMap[scriptProp as keyof typeof moduleMap];
-							return new ActorProxy(
-								runtime.actorDriver,
-								pair[0] as any,
-								pair[1] as any,
-							);
-						}
-					},
-				});
+	return new Proxy(actorMap, {
+		get: (_target: unknown, actorProp: string) => {
+			if (actorProp in actorMap) {
+				const pair = actorMap[actorProp as keyof typeof actorMap];
+				return new ActorProxy(
+					runtime.actorDriver,
+					pair[0] as any,
+					pair[1] as any,
+				);
 			}
 		},
-	};
-	return new Proxy({}, handler) as ActorProxies<ActorsCamelT>;
+	}) as ActorProxies<ActorsCamelT>;
 }

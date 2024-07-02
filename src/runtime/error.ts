@@ -48,20 +48,14 @@ export class RuntimeError extends Error {
 	public enrich<
 		DependenciesSnakeT,
 		DependenciesCamelT,
-		ActorsSnakeT,
-		ActorsCamelT,
 		Ctx extends Context<
 			DependenciesSnakeT,
-			DependenciesCamelT,
-			ActorsSnakeT,
-			ActorsCamelT
+			DependenciesCamelT
 		>,
 	>(
 		runtime: Runtime<
 			DependenciesSnakeT,
-			DependenciesCamelT,
-			ActorsSnakeT,
-			ActorsCamelT
+			DependenciesCamelT
 		>,
 		context: Ctx,
 	) {

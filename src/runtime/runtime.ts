@@ -6,7 +6,8 @@ import { handleRequest } from "./server.ts";
 import { TraceEntryType } from "./trace.ts";
 import { newTrace } from "./trace.ts";
 import { RegistryCallMap } from "./proxy.ts";
-import { ActorDriver } from "./actor.ts";
+import { ActorDriver } from "./actor/driver.ts";
+import { ActorBase } from "./actor/actor.ts";
 
 export interface Config {
 	runtime: BuildRuntime;
@@ -58,7 +59,8 @@ export type ScriptRun<Req, Res, UserConfigT, DatabaseT, DatabaseSchemaT> = (
 ) => Promise<Res>;
 
 export interface Actor {
-	actor: any;
+	// This monstrosity is to allow passing the constructor a subclass of ActorBase.
+	actor: new (...args: ConstructorParameters<typeof ActorBase<unknown, unknown>>) => ActorBase<unknown, unknown>;
 	storageId: string;
 }
 
@@ -66,7 +68,7 @@ export interface ErrorConfig {
 	description?: string;
 }
 
-export class Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT> {
+export class Runtime<DependenciesSnakeT, DependenciesCamelT> {
 	public postgres: Postgres;
 
 	public ajv: Ajv.default;
@@ -92,7 +94,7 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, Actor
 
 	public createRootContext(
 		traceEntryType: TraceEntryType,
-	): Context<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT> {
+	): Context<DependenciesSnakeT, DependenciesCamelT> {
 		return new Context(
 			this,
 			newTrace(traceEntryType, this.config.runtime),
@@ -135,7 +137,7 @@ export class Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, Actor
 			sanitizeResources: false,
 
 			async fn() {
-				const runtime = new Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>(
+				const runtime = new Runtime<DependenciesSnakeT, DependenciesCamelT>(
 					config,
 					actorDriver,
 					dependencyCaseConversionMap,

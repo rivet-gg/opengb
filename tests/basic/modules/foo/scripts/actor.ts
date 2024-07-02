@@ -14,14 +14,7 @@ export async function run(
 ): Promise<Response> {
 	let id = req.id ?? "me";
 
-	let ponger;
-	if (!await ctx.actors.foo.ponger.exists(id)) {
-		ponger = await ctx.actors.foo.ponger.create(id, {});
-	} else {
-		ponger = ctx.actors.foo.ponger.get(id);
-	}
-
-	let pongs = await ponger.call("addPong");
+  let pongs = await ctx.actors.ponger.getOrCreateAndCall<{}, number, number>(id, {}, "addPong", 5);
 
 	return { pongs };
 }

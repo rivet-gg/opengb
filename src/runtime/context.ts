@@ -5,9 +5,9 @@ import { appendTraceEntry } from "./trace.ts";
 import { buildActorRegistryProxy, buildDependencyRegistryProxy, RegistryCallMap } from "./proxy.ts";
 import { DependencyScriptCallFunction } from "../types/registry.ts";
 
-export class Context<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT> {
+export class Context<DependenciesSnakeT, DependenciesCamelT> {
 	public constructor(
-		protected readonly runtime: Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>,
+		protected readonly runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
 		public readonly trace: Trace,
 		private readonly dependencyCaseConversionMap: RegistryCallMap,
 		protected readonly actorCaseConversionMap: RegistryCallMap,
@@ -168,9 +168,9 @@ export class ModuleContext<
 	UserConfigT,
 	DatabaseT,
 	DatabaseSchemaT,
-> extends Context<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT> {
+> extends Context<DependenciesSnakeT, DependenciesCamelT> {
 	public constructor(
-		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>,
+		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
 		trace: Trace,
 		public readonly moduleName: string,
 		public readonly db: DatabaseT,
@@ -195,7 +195,7 @@ export class ModuleContext<
 	public get actors() {
 		return buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
 			this.runtime,
-			this.actorCaseConversionMap,
+			this.actorCaseConversionMap[this.moduleName],
 		);
 	}
 }
@@ -221,7 +221,7 @@ export class ScriptContext<
 	DatabaseSchemaT
 > {
 	public constructor(
-		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT, ActorsSnakeT, ActorsCamelT>,
+		runtime: Runtime<DependenciesSnakeT, DependenciesCamelT>,
 		trace: Trace,
 		moduleName: string,
 		db: DatabaseT,

@@ -1,6 +1,8 @@
 import {
 	genActorCaseConversionMapPath,
 	genActorTypedefPath,
+	genRuntimeActorDriverPath,
+	genRuntimeActorPath,
 	hasUserConfigSchema,
 	Module,
 	moduleHelperGen,
@@ -8,7 +10,6 @@ import {
 } from "../../project/mod.ts";
 import { GeneratedCodeBuilder } from "./mod.ts";
 import {
-	genActorPath,
 	genDependencyCaseConversionMapPath,
 	genDependencyTypedefPath,
 	genModulePublicExternal,
@@ -18,10 +19,12 @@ import {
 	RUNTIME_CONFIG_PATH,
 } from "../../project/project.ts";
 import { camelify } from "../../types/case_conversions.ts";
+import { BuildOpts } from "../mod.ts";
 
 export async function compileModuleHelper(
 	project: Project,
 	module: Module,
+	opts: BuildOpts,
 ) {
 	const helper = new GeneratedCodeBuilder(moduleHelperGen(project, module), 3);
 
@@ -44,7 +47,8 @@ export async function compileModuleHelper(
 			import { dependencyCaseConversionMap } from "${dependencyCaseConversionMapPath}";
 			import { actorCaseConversionMap } from "${actorCaseConversionMapPath}";
 
-			import { ActorBase, ACTOR_DRIVER } from "${genActorPath(project)}";
+      import { ActorBase } from ${JSON.stringify(genRuntimeActorPath(project))};
+			import { ACTOR_DRIVER } from ${JSON.stringify(genRuntimeActorDriverPath(project, opts.runtime))};
 		`;
 
 	// Type helpers
@@ -164,31 +168,36 @@ function genActors(
 	const moduleNameSnake = module.name;
 	const moduleNameCamel = camelify(module.name);
 
-	for (const dependencyName of Object.keys(module.config.dependencies || {})) {
-		const dependencyNameSnake = dependencyName;
-		const dependencyNameCamel = camelify(dependencyName);
+	// for (const dependencyName of Object.keys(module.config.dependencies || {})) {
+	// 	const dependencyNameSnake = dependencyName;
+	// 	const dependencyNameCamel = camelify(dependencyName);
+	//
+	// 	actorsTypedefSnake.append`
+	// 		${dependencyNameSnake}: ActorsSnakeFull["${dependencyNameSnake}"];
+	// 	`;
+	// 	actorsTypedefCamel.append`
+	// 		${dependencyNameCamel}: ActorsCamelFull["${dependencyNameCamel}"];
+	// 	`;
+	// }
+	//
+	// actorsTypedefSnake.prepend`${moduleNameSnake}: ActorsSnakeFull["${moduleNameSnake}"];`;
+	// actorsTypedefCamel.prepend`${moduleNameCamel}: ActorsCamelFull["${moduleNameCamel}"];`;
+	//
+	// GeneratedCodeBuilder.wrap(
+	// 	"interface ActorsSnake {",
+	// 	actorsTypedefSnake,
+	// 	"}",
+	// );
+	// GeneratedCodeBuilder.wrap(
+	// 	"interface ActorsCamel {",
+	// 	actorsTypedefCamel,
+	// 	"}",
+	// );
 
-		actorsTypedefSnake.append`
-			${dependencyNameSnake}: ActorsSnakeFull["${dependencyNameSnake}"];
-		`;
-		actorsTypedefCamel.append`
-			${dependencyNameCamel}: ActorsCamelFull["${dependencyNameCamel}"];
-		`;
-	}
-
-	actorsTypedefSnake.prepend`${moduleNameSnake}: ActorsSnakeFull["${moduleNameSnake}"];`;
-	actorsTypedefCamel.prepend`${moduleNameCamel}: ActorsCamelFull["${moduleNameCamel}"];`;
-
-	GeneratedCodeBuilder.wrap(
-		"interface ActorsSnake {",
-		actorsTypedefSnake,
-		"}",
-	);
-	GeneratedCodeBuilder.wrap(
-		"interface ActorsCamel {",
-		actorsTypedefCamel,
-		"}",
-	);
+	helper.append`
+    type ActorsSnake = ActorsSnakeFull["${moduleNameSnake}"];
+    type ActorsCamel = ActorsCamelFull["${moduleNameCamel}"];
+  `;
 }
 
 function genModule(

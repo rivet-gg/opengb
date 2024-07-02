@@ -58,7 +58,7 @@ export async function planModuleBuild(
 			},
 		},
 		async build() {
-			await compileModuleHelper(project, module);
+			await compileModuleHelper(project, module, opts);
 		},
 	});
 

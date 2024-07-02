@@ -6,6 +6,7 @@ import { ensurePostgresRunning } from "../../utils/postgres_daemon.ts";
 import { watch } from "../../watch/mod.ts";
 import { Project } from "../../project/mod.ts";
 import { UserError } from "../../error/mod.ts";
+import { info, progress } from "../../term/status.ts";
 
 // TODO: https://github.com/rivet-gg/opengb-engine/issues/86
 export const testCommand = new Command<GlobalOpts>()
@@ -50,6 +51,7 @@ export const testCommand = new Command<GlobalOpts>()
 					if (opts.check) args.push("--check");
 
 					// Find test scripts
+					const testingModules = [];
 					for (const module of project.modules.values()) {
 						// Filter modules
 						if (modulesFilter.length == 0) {
@@ -60,6 +62,8 @@ export const testCommand = new Command<GlobalOpts>()
 							if (!modulesFilter.includes(module.name)) continue;
 						}
 
+						testingModules.push(module.name);
+
 						// Test all modules or filter module tests
 						const testPaths = (await glob.glob("*.ts", {
 							cwd: resolve(module.path, "tests"),
@@ -68,7 +72,13 @@ export const testCommand = new Command<GlobalOpts>()
 						args.push(...testPaths);
 					}
 
-					// Run entrypoint
+					if (testingModules.length == 0) {
+						info("Finished", "No modules to test");
+						return;
+					}
+
+					// Run tests
+					info("Testing", testingModules.join(", "));
 					const cmd = await new Deno.Command("deno", {
 						args: [
 							"test",
