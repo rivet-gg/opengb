@@ -3,7 +3,19 @@ import { DurableObject } from "cloudflare:workers";
 import { CloudflareDurableObjectsStorage } from "./storage.ts";
 import { CloudflareDurableObjectsSchedule } from "./schedule.ts";
 import { ActorBase } from "../../actor.ts";
-import { Config, ModuleContextParams } from "../../../mod.ts";
+import {
+	Actor,
+	ActorContext,
+	appendTraceEntry,
+	Config,
+	Module,
+	ModuleContextParams,
+	Runtime,
+	Trace,
+} from "../../../mod.ts";
+import { RegistryCallMap } from "../../../proxy.ts";
+import { ActorDriver } from "./driver.ts";
+import { newTrace } from "../../../trace.ts";
 
 const KEYS = {
 	META: {
@@ -43,6 +55,7 @@ interface InitOpts {
 	actor: string;
 	instance: string;
 	input: any;
+	trace: Trace;
 	ignoreAlreadyInitialized?: boolean;
 }
 
@@ -50,18 +63,19 @@ interface GetOrCreateAndCallOpts {
 	init: InitOpts;
 	fn: string;
 	request: unknown;
+	trace: Trace;
 }
 
 interface CallRpcOpts {
 	fn: string;
 	request: unknown;
+	trace: Trace;
 }
 
 /*
  * __GlobalDurableObject type used for referencing an instance of the class.
  */
 export interface __GlobalDurableObjectT extends DurableObject {
-	constructActor(): Promise<ActorBase<ModuleContextParams, unknown, unknown>>;
 	init(opts: InitOpts): Promise<void>;
 	initialized(): Promise<boolean>;
 	getOrCreateAndCallRpc(opts: GetOrCreateAndCallOpts): Promise<any>;
@@ -69,6 +83,15 @@ export interface __GlobalDurableObjectT extends DurableObject {
 	scheduleEvent(timestamp: number, fn: string, request: unknown): Promise<void>;
 	alarm(): Promise<void>;
 	get storage(): DurableObjectStorage;
+}
+
+/**
+ * Actor data & config read from the actor state.
+ */
+interface ActorMeta {
+	moduleName: string;
+	actorName: string;
+	state: any;
 }
 
 /**
@@ -81,10 +104,31 @@ export interface __GlobalDurableObjectT extends DurableObject {
  * is better since it ensures that you _can't_ create an instance of
  * __GlobalDurableObject that doesn't have an associated config.
  */
-export function buildGlobalDurableObjectClass(config: Config) {
+export function buildGlobalDurableObjectClass(
+	config: Config,
+	dependencyCaseConversionMap: RegistryCallMap,
+	actorDependencyCaseConversionMap: RegistryCallMap,
+) {
 	class __GlobalDurableObject extends DurableObject implements __GlobalDurableObjectT {
-		// TODO: optimize to use in-memory state
-		async constructActor(): Promise<ActorBase<ModuleContextParams, unknown, unknown>> {
+		private runtime: Runtime<ModuleContextParams>;
+
+		constructor(ctx: DurableObjectState, env: unknown) {
+			super(ctx, env);
+
+			this.runtime = new Runtime(
+				config,
+				new ActorDriver(config),
+				dependencyCaseConversionMap,
+				actorDependencyCaseConversionMap,
+			);
+		}
+
+		/**
+		 * Reads the metadata related to this actor from storage.
+		 *
+		 * This data is set in `init`.
+		 */
+		async getMeta(): Promise<ActorMeta> {
 			// Create actor instance
 			const storageRes = await this.ctx.storage.get<string>([KEYS.META.MODULE, KEYS.META.ACTOR, KEYS.STATE]);
 			const moduleName = storageRes.get(KEYS.META.MODULE);
@@ -93,20 +137,43 @@ export function buildGlobalDurableObjectClass(config: Config) {
 			if (moduleName == undefined || actorName == undefined) throw new Error("actor not initialized");
 			if (state == undefined) throw Error("actor state not initiated");
 
+			return { moduleName, actorName, state };
+		}
+
+		// TODO: optimize to use in-memory state
+		private async constructActor(meta: ActorMeta): Promise<ActorBase<unknown, unknown>> {
 			// Get actor config
-			if (!(moduleName in config.modules)) throw new Error("module not found");
-			const moduleConfig = config.modules[moduleName];
-			if (!(actorName in moduleConfig.actors)) throw new Error("actor not found");
-			const actorConfig = moduleConfig.actors[actorName];
+			if (!(meta.moduleName in config.modules)) throw new Error("module not found");
+			const moduleConfig = config.modules[meta.moduleName];
+			if (!(meta.actorName in moduleConfig.actors)) throw new Error("actor not found");
+			const actorConfig = moduleConfig.actors[meta.actorName];
 
 			// TODO: cache actor instance in memory
 			// TODO: use ctx.waitUntil for all calls
 			// Run actor function
-			const storage = new CloudflareDurableObjectsStorage(this);
-			const schedule = new CloudflareDurableObjectsSchedule(this);
-			const actor = new (actorConfig.actor)(config, storage, schedule, state);
+			const actor = new (actorConfig.actor)(
+				new CloudflareDurableObjectsStorage(this),
+				new CloudflareDurableObjectsSchedule(this),
+			);
 
 			return actor;
+		}
+
+		private createActorContext(moduleName: string, actorName: string, trace: Trace): ActorContext<ModuleContextParams> {
+			// Build context
+			const module = config.modules[moduleName];
+			const context = new ActorContext<ModuleContextParams>(
+				this.runtime,
+				trace,
+				moduleName,
+				this.runtime.postgres.getOrCreatePrismaClient(this.runtime.config, module),
+				module.db?.schema,
+				actorName,
+				dependencyCaseConversionMap,
+				actorDependencyCaseConversionMap,
+			);
+
+			return context;
 		}
 
 		async init(opts: InitOpts) {
@@ -123,8 +190,17 @@ export function buildGlobalDurableObjectClass(config: Config) {
 			});
 
 			// Build initial state
-			const actor = await this.constructActor();
-			const state = actor.initialize(opts.input);
+			const actor = await this.constructActor({
+				moduleName: opts.module,
+				actorName: opts.actor,
+				state: undefined,
+			});
+			const context = this.createActorContext(
+				opts.module,
+				opts.actor,
+				appendTraceEntry(opts.trace, { actorInitialize: { module: opts.module, actor: opts.actor } }),
+			);
+			const state = actor.initialize(context, opts.input);
 			await this.ctx.storage.put(KEYS.STATE, state);
 		}
 
@@ -138,18 +214,26 @@ export function buildGlobalDurableObjectClass(config: Config) {
 				ignoreAlreadyInitialized: true,
 			});
 
-			return await this.callRpc({ fn: opts.fn, request: opts.request });
+			return await this.callRpc({ fn: opts.fn, request: opts.request, trace: opts.trace });
 		}
 
-		async callRpc({ fn, request }: CallRpcOpts): Promise<any> {
-			const actor = await this.constructActor();
+		async callRpc({ fn, request, trace }: CallRpcOpts): Promise<any> {
+			const meta = await this.getMeta();
+			const actor = await this.constructActor(meta);
+			actor.state = meta.state;
+
+			const context = this.createActorContext(
+				meta.moduleName,
+				meta.actorName,
+				appendTraceEntry(trace, { actorCall: { module: meta.moduleName, actor: meta.actorName, fn } }),
+			);
 
 			// Call fn
-			let callRes = (actor as any)[fn](request);
+			let callRes = (actor as any)[fn](context, request);
 			if (callRes instanceof Promise) callRes = await callRes;
 
 			// Update state
-			await this.ctx.storage.put(KEYS.STATE, actor!.state);
+			await this.ctx.storage.put(KEYS.STATE, actor.state);
 
 			return callRes;
 		}
@@ -214,7 +298,8 @@ export function buildGlobalDurableObjectClass(config: Config) {
 				const event = scheduleEvents.get(eventKey)!;
 				try {
 					// TODO: how do we handle this promise cleanly?
-					this.callRpc({ fn: event.fn, request: event.request });
+					const res = this.callRpc({ fn: event.fn, request: event.request, trace: newTrace({ actorSchedule: {} }) });
+					if (res instanceof Promise) await res;
 				} catch (err) {
 					console.error("Failed to run scheduled event", err, event);
 				}

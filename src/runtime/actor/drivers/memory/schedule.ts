@@ -1,3 +1,4 @@
+import { newTrace } from "../../../mod.ts";
 import { ScheduleDriver } from "../../driver.ts";
 import { ActorEntry, MemoryActorDriver } from "./driver.ts";
 
@@ -12,6 +13,7 @@ export class MemorySchedule implements ScheduleDriver {
 				instanceName: this.actorEntry.instanceName,
 				fn,
 				request,
+				trace: newTrace({ actorSchedule: {} }),
 			});
 		}, duration);
 	}
@@ -24,6 +26,7 @@ export class MemorySchedule implements ScheduleDriver {
 				instanceName: this.actorEntry.instanceName,
 				fn,
 				request,
+				trace: newTrace({ actorSchedule: {} }),
 			});
 		}, timestamp - Date.now());
 	}

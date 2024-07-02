@@ -1,6 +1,8 @@
 // This file is only imported when the runtime is `deno`
 //
-import { Config } from "../../../mod.ts";
+import { ModuleContextParams } from "../../../context.ts";
+import { ActorContext, appendTraceEntry, Config, Runtime, Trace, TraceEntry } from "../../../mod.ts";
+import { RegistryCallMap } from "../../../proxy.ts";
 import { ActorDriver, CallOpts, CreateOpts, ExistsOpts, GetOrCreateAndCallOpts } from "../../driver.ts";
 import { MemorySchedule } from "./schedule.ts";
 import { MemoryStorage } from "./storage.ts";
@@ -14,12 +16,24 @@ export interface ActorEntry {
 }
 
 export class MemoryActorDriver implements ActorDriver {
+	private runtime: Runtime<ModuleContextParams>;
 	private encoder = new TextEncoder();
 	private actorRegistry = new Map<string, ActorEntry>();
 
-	public constructor(public readonly config: Config) {}
+	public constructor(
+		public readonly config: Config,
+		private dependencyCaseConversionMap: RegistryCallMap,
+		private actorDependencyCaseConversionMap: RegistryCallMap,
+	) {
+		this.runtime = new Runtime(
+			this.config,
+			this,
+			this.dependencyCaseConversionMap,
+			this.actorDependencyCaseConversionMap,
+		);
+	}
 
-	async createActor({ moduleName, actorName, instanceName, input }: CreateOpts): Promise<void> {
+	async createActor({ moduleName, actorName, instanceName, input, trace }: CreateOpts): Promise<void> {
 		const id = await this.getId(moduleName, actorName, instanceName);
 
 		// Ensure doesn't already exist
@@ -39,7 +53,12 @@ export class MemoryActorDriver implements ActorDriver {
 		// TODO: cache init actor in memory
 		// Run actor function
 		const actor = this.constructActor(actorEntry, true);
-		let initRes = actor.initialize(input);
+		const context = this.createActorContext(
+			moduleName,
+			actorName,
+			appendTraceEntry(trace, { actorInitialize: { module: moduleName, actor: actorName } }),
+		);
+		let initRes = actor.initialize(context, input);
 		if (initRes instanceof Promise) initRes = await initRes;
 
 		// Save state
@@ -48,12 +67,20 @@ export class MemoryActorDriver implements ActorDriver {
 		// Save actor
 		this.actorRegistry.set(id, actorEntry);
 	}
-	async callActor({ moduleName, actorName, instanceName, fn, request }: CallOpts): Promise<unknown> {
+
+	async callActor({ moduleName, actorName, instanceName, fn, request, trace }: CallOpts): Promise<unknown> {
 		const entry = await this.getEntry(moduleName, actorName, instanceName);
 		const actor = this.constructActor(entry, false);
+		actor.state = entry.state ? JSON.parse(entry.state!) : undefined;
+
+		const context = this.createActorContext(
+			moduleName,
+			actorName,
+			appendTraceEntry(trace, { actorCall: { module: moduleName, actor: actorName, fn } }),
+		);
 
 		// Run actor function
-		let callRes = (actor as any)[fn](request);
+		let callRes = (actor as any)[fn](context, request);
 		if (callRes instanceof Promise) callRes = await callRes;
 
 		// Save state
@@ -63,15 +90,15 @@ export class MemoryActorDriver implements ActorDriver {
 	}
 
 	async getOrCreateAndCallActor(
-		{ moduleName, actorName, instanceName, input, fn, request }: GetOrCreateAndCallOpts,
+		{ moduleName, actorName, instanceName, input, fn, request, trace }: GetOrCreateAndCallOpts,
 	): Promise<unknown> {
 		// Create actor if needed
 		if (!this.actorRegistry.has(await this.getId(moduleName, actorName, instanceName))) {
-			await this.createActor({ moduleName, actorName, instanceName, input });
+			await this.createActor({ moduleName, actorName, instanceName, input, trace });
 		}
 
 		// Call actor
-		const callRes = await this.callActor({ moduleName, actorName, instanceName, fn, request });
+		const callRes = await this.callActor({ moduleName, actorName, instanceName, fn, request, trace });
 
 		return callRes;
 	}
@@ -110,12 +137,29 @@ export class MemoryActorDriver implements ActorDriver {
 
 		// TODO: cache actor instance in memory
 		// Run actor function
-		const storage = new MemoryStorage(entry);
-		const schedule = new MemorySchedule(this, entry);
-		const state = entry.state ? JSON.parse(entry.state!) : undefined;
-		const actor = new (actorConfig.actor)(this.config, storage, schedule, state);
+		const actor = new (actorConfig.actor)(
+			new MemoryStorage(entry),
+			new MemorySchedule(this, entry),
+		);
 
 		return actor;
+	}
+
+	private createActorContext(moduleName: string, actorName: string, trace: Trace): ActorContext<ModuleContextParams> {
+		// Build context
+		const module = this.config.modules[moduleName];
+		const context = new ActorContext<ModuleContextParams>(
+			this.runtime,
+			trace,
+			moduleName,
+			this.runtime.postgres.getOrCreatePrismaClient(this.runtime.config, module),
+			module.db?.schema,
+			actorName,
+			this.dependencyCaseConversionMap,
+			this.actorDependencyCaseConversionMap,
+		);
+
+		return context;
 	}
 
 	private async hash(input: string) {

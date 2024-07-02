@@ -204,6 +204,7 @@ export class ModuleContext<Params extends ModuleContextParams> extends Context<P
 			// TODO: Find a better way of looking up the module name. We don't use
 			// camel -> snake conversions anymore for modules in actors.
 			this.actorCaseConversionMap[camelify(this.moduleName)],
+			this.trace,
 		);
 	}
 }
@@ -219,6 +220,24 @@ export class ScriptContext<Params extends ModuleContextParams> extends ModuleCon
 		db: Params["database"],
 		dbSchema: Params["databaseSchema"],
 		public readonly scriptName: string,
+		dependencyCaseConversionMap: RegistryCallMap,
+		actorCaseConversionMap: RegistryCallMap,
+	) {
+		super(runtime, trace, moduleName, db, dbSchema, dependencyCaseConversionMap, actorCaseConversionMap);
+	}
+}
+
+/**
+ * Context for an actor.
+ */
+export class ActorContext<Params extends ModuleContextParams> extends ModuleContext<Params> {
+	public constructor(
+		runtime: Runtime<Params>,
+		trace: Trace,
+		moduleName: string,
+		db: Params["database"],
+		dbSchema: Params["databaseSchema"],
+		public readonly actorName: string,
 		dependencyCaseConversionMap: RegistryCallMap,
 		actorCaseConversionMap: RegistryCallMap,
 	) {

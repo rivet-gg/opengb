@@ -1,4 +1,4 @@
-import { Context, Runtime } from "../runtime/mod.ts";
+import { Context, Runtime, Trace } from "../runtime/mod.ts";
 import { RequestOf, ResponseOf } from "../types/registry.ts";
 import { ActorProxy } from "./actor/proxy.ts";
 import { ContextParams } from "./context.ts";
@@ -147,6 +147,7 @@ export function buildDependencyRegistryProxy<Params extends ContextParams>(
 export function buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
 	runtime: Runtime<any>,
 	actorMap: ModuleCallMap,
+	trace: Trace,
 ): ActorProxies<ActorsCamelT> {
 	return new Proxy(actorMap, {
 		get: (_target: unknown, actorProp: string) => {
@@ -156,6 +157,7 @@ export function buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
 					runtime.actorDriver,
 					pair[0] as any,
 					pair[1] as any,
+					trace,
 				);
 			}
 		},

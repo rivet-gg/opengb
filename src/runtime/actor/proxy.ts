@@ -1,3 +1,4 @@
+import { Trace } from "../mod.ts";
 import { ActorDriver } from "./driver.ts";
 
 // Returned from ctx.actors.xxx
@@ -6,6 +7,7 @@ export class ActorProxy {
 		private driver: ActorDriver,
 		private moduleName: string,
 		private actorName: string,
+		private trace: Trace,
 	) {}
 
 	async create<Input>(instanceName: string, input: Input): Promise<void> {
@@ -14,6 +16,7 @@ export class ActorProxy {
 			actorName: this.actorName,
 			instanceName,
 			input,
+			trace: this.trace,
 		});
 	}
 
@@ -24,6 +27,7 @@ export class ActorProxy {
 			instanceName,
 			fn,
 			request,
+			trace: this.trace,
 		}) as Response;
 	}
 
@@ -40,6 +44,7 @@ export class ActorProxy {
 			input,
 			fn,
 			request,
+			trace: this.trace,
 		}) as Response;
 	}
 

@@ -42,12 +42,13 @@ export async function compileModuleHelper(
 				ModuleContext as ModuleContextInner,
 				TestContext as TestContextInner,
 				ScriptContext as ScriptContextInner,
+				ActorContext as ActorContextInner,
 				Runtime,
 			} from "${runtimePath}";
 			import config from "${runtimeConfigPath}";
 			import { dependencyCaseConversionMap } from "${dependencyCaseConversionMapPath}";
 			import { actorCaseConversionMap } from "${actorCaseConversionMapPath}";
-      import { ActorBase as ActorBaseInner } from ${JSON.stringify(genRuntimeActorPath(project))};
+      import { ActorBase } from ${JSON.stringify(genRuntimeActorPath(project))};
 			import { ActorDriver } from ${JSON.stringify(genRuntimeActorDriverPath(project, opts.runtime))};
 		`;
 
@@ -65,7 +66,7 @@ export async function compileModuleHelper(
 
 	// Common exports
 	helper.chunk.append`
-			export { RuntimeError };
+			export { RuntimeError, ActorBase };
 		`;
 
 	// Gen blocks
@@ -255,7 +256,7 @@ function genTest(
 			export function test(name: string, fn: TestFn) {
 				Runtime.test(
 					config,
-					new ActorDriver(config),
+					new ActorDriver(config, dependencyCaseConversionMap, actorCaseConversionMap),
 					"${module.name}",
 					name,
 					fn,
@@ -288,6 +289,6 @@ function genActor(
 	helper.chunk.withNewlinesPerChunk(1)
 		.newline()
 		.append`
-      export abstract class ActorBase<Input, State> extends ActorBaseInner<ModuleContextParams, Input, State> {}
+			export type ActorContext = ActorContextInner<ModuleContextParams>;
 		`;
 }

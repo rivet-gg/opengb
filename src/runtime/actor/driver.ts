@@ -1,8 +1,11 @@
+import { Trace } from "../mod.ts";
+
 export interface CreateOpts {
 	moduleName: string;
 	actorName: string;
 	instanceName: string;
 	input: unknown;
+	trace: Trace;
 }
 
 export interface CallOpts {
@@ -11,6 +14,7 @@ export interface CallOpts {
 	instanceName: string;
 	fn: string;
 	request: unknown;
+	trace: Trace;
 }
 
 export interface GetOrCreateAndCallOpts {
@@ -20,6 +24,7 @@ export interface GetOrCreateAndCallOpts {
 	input: unknown;
 	fn: string;
 	request: unknown;
+	trace: Trace;
 }
 
 export interface ExistsOpts {

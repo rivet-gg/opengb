@@ -26,6 +26,9 @@ export type TraceEntryType =
 	| {
 		script: TraceEntryTypeScript;
 	}
+	| { actorInitialize: TraceEntryTypeActorInitialize }
+	| { actorCall: TraceEntryTypeActorCall }
+	| { actorSchedule: TraceEntryTypeActorSchedule }
 	| { test: TraceEntryTypeTest }
 	| { internalTest: TraceEntryTypeInternalTest };
 
@@ -40,6 +43,19 @@ export interface TraceEntryTypeScript extends JsonObject {
 	module: string;
 	script: string;
 }
+
+export interface TraceEntryTypeActorInitialize extends JsonObject {
+	module: string;
+	actor: string;
+}
+
+export interface TraceEntryTypeActorCall extends JsonObject {
+	module: string;
+	actor: string;
+	fn: string;
+}
+
+export interface TraceEntryTypeActorSchedule extends JsonObject {}
 
 export interface TraceEntryTypeTest extends JsonObject {
 	module: string;

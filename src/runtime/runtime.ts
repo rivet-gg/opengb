@@ -71,8 +71,8 @@ export type ScriptRun<Req, Res, UserConfigT, DatabaseT, DatabaseSchemaT> = (
 export interface Actor {
 	// This monstrosity is to allow passing the constructor a subclass of ActorBase.
 	actor: new (
-		...args: ConstructorParameters<typeof ActorBase<ModuleContextParams, unknown, unknown>>
-	) => ActorBase<ModuleContextParams, unknown, unknown>;
+		...args: ConstructorParameters<typeof ActorBase<unknown, unknown>>
+	) => ActorBase<unknown, unknown>;
 	storageAlias: string;
 }
 

@@ -102,7 +102,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
         dependenciesCamel: DependenciesCamel,
       }>(
 				config,
-				new ActorDriver(config),
+				new ActorDriver(config, dependencyCaseConversionMap, actorCaseConversionMap),
 				dependencyCaseConversionMap,
 				actorCaseConversionMap,
 			);
@@ -139,7 +139,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
             dependenciesCamel: DependenciesCamel,
           }>(
             config,
-            new ActorDriver(config),
+            new ActorDriver(config, dependencyCaseConversionMap, actorCaseConversionMap),
             dependencyCaseConversionMap,
             actorCaseConversionMap,
           );

@@ -1,0 +1,16 @@
+---
+title: Actor
+---
+
+<Note>
+    Documentation coming very soon!
+</Note>
+
+## Performance Tips
+
+### Do as little work on the actor as possible
+
+Opt to run as many database queries and other expensive operations on the request before sending a message to the actor.
+
+Scripts scale horizontally while actors can be a performance bottleneck if misused.
+
