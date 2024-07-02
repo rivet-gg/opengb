@@ -4,6 +4,7 @@ import { RuntimeError } from "./error.ts";
 import { appendTraceEntry } from "./trace.ts";
 import { buildActorRegistryProxy, buildDependencyRegistryProxy, RegistryCallMap } from "./proxy.ts";
 import { DependencyScriptCallFunction } from "../types/registry.ts";
+import { camelify } from "../types/case_conversions.ts";
 
 export class Context<DependenciesSnakeT, DependenciesCamelT> {
 	public constructor(
@@ -195,7 +196,9 @@ export class ModuleContext<
 	public get actors() {
 		return buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
 			this.runtime,
-			this.actorCaseConversionMap[this.moduleName],
+			// TODO: Find a better way of looking up the module name. We don't use
+			// camel -> snake conversions anymore for modules in actors.
+			this.actorCaseConversionMap[camelify(this.moduleName)],
 		);
 	}
 }

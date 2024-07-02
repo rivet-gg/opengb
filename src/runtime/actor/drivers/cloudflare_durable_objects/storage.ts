@@ -1,8 +1,8 @@
 import { StorageDriver } from "../../driver.ts";
-import { __GlobalDurableObject } from "./global_durable_object.ts";
+import { __GlobalDurableObjectT } from "./global_durable_object.ts";
 
-export class Storage implements StorageDriver {
-	constructor(private readonly durableObject: __GlobalDurableObject) {}
+export class CloudflareDurableObjectsStorage implements StorageDriver {
+	constructor(private readonly durableObject: __GlobalDurableObjectT) {}
 
 	async get<V>(key: string): Promise<V | undefined> {
 		const jsonRaw = await this.durableObject.storage.get<string>(buildStorageKey(key));

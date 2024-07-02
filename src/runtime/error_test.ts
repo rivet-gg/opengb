@@ -4,28 +4,27 @@ import { ModuleContext } from "./context.ts";
 import { RuntimeError } from "./error.ts";
 import { BuildRuntime, newTrace } from "./mod.ts";
 import { Runtime } from "./runtime.ts";
-import { ActorDriver } from "./actor/driver.ts";
+import { ActorDriver, CallOpts, CreateOpts, ExistsOpts, GetOrCreateAndCallOpts } from "./actor/driver.ts";
 
 type DependenciesSnake = { test_module: Record<string, never> };
 type DependenciesCamel = { testModule: Record<string, never> };
 interface ActorsSnake {}
 interface ActorsCamel {}
 
-export const DUMMY_ACTOR_DRIVER: ActorDriver = {
-	config: undefined as any,
-	createActor(_opts): Promise<void> {
-		unimplemented();
-	},
-	callActor(_opts): Promise<unknown> {
-		unimplemented();
-	},
-	getOrCreateAndCallActor(_opts): Promise<unknown> {
-		unimplemented();
-	},
-	actorExists(_opts): Promise<boolean> {
-		unimplemented();
-	},
-};
+class DummyActorDriver implements ActorDriver {
+	createActor(_opts: CreateOpts): Promise<void> {
+		throw new Error("Method not implemented.");
+	}
+	callActor(_opts: CallOpts): Promise<unknown> {
+		throw new Error("Method not implemented.");
+	}
+	getOrCreateAndCallActor(_opts: GetOrCreateAndCallOpts): Promise<unknown> {
+		throw new Error("Method not implemented.");
+	}
+	actorExists(_opts: ExistsOpts): Promise<boolean> {
+		throw new Error("Method not implemented.");
+	}
+}
 
 Deno.test("error", async () => {
 	const dependencyCaseConversionMap = {
@@ -39,6 +38,7 @@ Deno.test("error", async () => {
 			runtime: BuildRuntime.Deno,
 			modules: {
 				test_module: {
+					storageAlias: "test_module",
 					scripts: {},
 					actors: {},
 					errors: {
@@ -52,7 +52,7 @@ Deno.test("error", async () => {
 				createPgPool: () => unimplemented(),
 			},
 		},
-		DUMMY_ACTOR_DRIVER,
+		new DummyActorDriver(),
 		dependencyCaseConversionMap,
 		actorCaseConversionMap,
 	);

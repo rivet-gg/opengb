@@ -1,8 +1,8 @@
 import { StorageDriver } from "../../driver.ts";
 import { ActorEntry } from "./driver.ts";
 
-export class Storage implements StorageDriver {
-	public constructor(private readonly actorEntry: ActorEntry) {}
+export class MemoryStorage implements StorageDriver {
+	constructor(private readonly actorEntry: ActorEntry) {}
 
 	async get<V>(key: string): Promise<V | undefined> {
 		const value = this.actorEntry.storage.get(key);

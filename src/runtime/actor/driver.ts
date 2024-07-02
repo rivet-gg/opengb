@@ -1,13 +1,11 @@
-import { Config } from "../mod.ts";
-
-interface CreateOpts {
+export interface CreateOpts {
 	moduleName: string;
 	actorName: string;
 	instanceName: string;
 	input: unknown;
 }
 
-interface CallOpts {
+export interface CallOpts {
 	moduleName: string;
 	actorName: string;
 	instanceName: string;
@@ -15,7 +13,7 @@ interface CallOpts {
 	request: unknown;
 }
 
-interface GetOrCreateAndCallOpts {
+export interface GetOrCreateAndCallOpts {
 	moduleName: string;
 	actorName: string;
 	instanceName: string;
@@ -24,15 +22,13 @@ interface GetOrCreateAndCallOpts {
 	request: unknown;
 }
 
-interface ExistsOpts {
+export interface ExistsOpts {
 	moduleName: string;
 	actorName: string;
 	instanceName: string;
 }
 
 export interface ActorDriver {
-	// TODO: doc write set by global
-	config: Config;
 	createActor(opts: CreateOpts): Promise<void>;
 	callActor(opts: CallOpts): Promise<unknown>;
 	getOrCreateAndCallActor(opts: GetOrCreateAndCallOpts): Promise<unknown>;

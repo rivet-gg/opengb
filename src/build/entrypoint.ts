@@ -85,7 +85,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 	// Generate entrypoint.ts
 	let entrypointSource = "";
 
-	let actorDriverPath: string = genRuntimeActorDriverPath(project, opts.runtime);
+	const actorDriverPath: string = genRuntimeActorDriverPath(project, opts.runtime);
 	if (opts.runtime == Runtime.Deno) {
 		entrypointSource = `
 			${autoGenHeader()}
@@ -95,15 +95,13 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			import type { DependenciesSnake, DependenciesCamel } from "./dependencies.d.ts";
 			import type { ActorsSnake, ActorsCamel } from "./actors.d.ts";
 			import config from "./runtime_config.ts";
-			import { ACTOR_DRIVER } from ${JSON.stringify(actorDriverPath)};
-
-			ACTOR_DRIVER.config = config;
+			import { ActorDriver } from ${JSON.stringify(actorDriverPath)};
 
 			const runtime = new Runtime<
 				DependenciesSnake, DependenciesCamel
 			>(
 				config,
-				ACTOR_DRIVER,
+				new ActorDriver(config),
 				dependencyCaseConversionMap,
 				actorCaseConversionMap,
 			);
@@ -126,9 +124,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			import type { ActorsSnake, ActorsCamel } from "./actors.d.ts";
 			import config from "./runtime_config.ts";
 			import { handleRequest } from "${serverTsPath}";
-			import { ACTOR_DRIVER, __GlobalDurableObject } from ${JSON.stringify(actorDriverPath)};
-
-			ACTOR_DRIVER.config = config;
+			import { ActorDriver, buildGlobalDurableObjectClass } from ${JSON.stringify(actorDriverPath)};
 
 			export default {
 				async fetch(req: IncomingRequestCf, env: Record<string, unknown>) {
@@ -141,7 +137,7 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
             DependenciesSnake, DependenciesCamel
           >(
             config,
-            ACTOR_DRIVER,
+            new ActorDriver(config),
             dependencyCaseConversionMap,
             actorCaseConversionMap,
           );
@@ -161,7 +157,9 @@ export async function generateEntrypoint(project: Project, opts: BuildOpts) {
 			}
 
 			// Export durable object binding
-			export { __GlobalDurableObject };
+			export {
+        __GlobalDurableObject: buildGlobalDurableObjectClass(config)
+      };
 			`;
 	}
 

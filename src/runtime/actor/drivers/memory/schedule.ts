@@ -1,11 +1,12 @@
 import { ScheduleDriver } from "../../driver.ts";
-import { ACTOR_DRIVER, ActorEntry } from "./driver.ts";
+import { ActorEntry, MemoryActorDriver } from "./driver.ts";
 
-export class Schedule implements ScheduleDriver {
-	public constructor(private readonly actorEntry: ActorEntry) {}
+export class MemorySchedule implements ScheduleDriver {
+	constructor(private readonly driver: MemoryActorDriver, private readonly actorEntry: ActorEntry) {}
+
 	after(duration: number, fn: string, request: unknown): void {
 		setTimeout(() => {
-			ACTOR_DRIVER.callActor({
+			this.driver.callActor({
 				moduleName: this.actorEntry.moduleName,
 				actorName: this.actorEntry.actorName,
 				instanceName: this.actorEntry.instanceName,
@@ -14,9 +15,10 @@ export class Schedule implements ScheduleDriver {
 			});
 		}, duration);
 	}
+
 	at(timestamp: number, fn: string, request: unknown): void {
 		setTimeout(() => {
-			ACTOR_DRIVER.callActor({
+			this.driver.callActor({
 				moduleName: this.actorEntry.moduleName,
 				actorName: this.actorEntry.actorName,
 				instanceName: this.actorEntry.instanceName,

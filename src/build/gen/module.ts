@@ -48,7 +48,7 @@ export async function compileModuleHelper(
 			import { actorCaseConversionMap } from "${actorCaseConversionMapPath}";
 
       import { ActorBase } from ${JSON.stringify(genRuntimeActorPath(project))};
-			import { ACTOR_DRIVER } from ${JSON.stringify(genRuntimeActorDriverPath(project, opts.runtime))};
+			import { ActorDriver } from ${JSON.stringify(genRuntimeActorDriverPath(project, opts.runtime))};
 		`;
 
 	// Type helpers
@@ -260,7 +260,7 @@ function genTest(
 			export function test(name: string, fn: TestFn) {
 				Runtime.test(
 					config,
-					ACTOR_DRIVER,
+					new ActorDriver(config),
 					"${module.name}",
 					name,
 					fn,
