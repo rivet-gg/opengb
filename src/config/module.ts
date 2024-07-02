@@ -71,12 +71,12 @@ export interface ScriptConfig {
 
 export interface ActorConfig {
 	/**
-	 * A globally unique string for storing data for this actor.
+	 * Used to keep actor IDs the same in case the actor name changes.
 	 *
-	 * **IMPORTANT** Changing this will effectively unlink all data stored in this actor. Changing it back to
-	 * the old value will restore the data.
+	 * **IMPORTANT** Changing this will effectively unlink all data stored in
+	 * this actor. Changing it back to the old value will restore the data.
 	 */
-	storage_id: string;
+	storageAlias?: string;
 }
 
 export interface ErrorConfig {
@@ -119,14 +119,14 @@ export async function readConfig(modulePath: string): Promise<ModuleConfig> {
 	// Validate unique actor storage ids
 	const uniqueActorStorageIds = new Map();
 	for (const [actorName, actor] of Object.entries(config.actors ?? {})) {
-		const entry = uniqueActorStorageIds.get(actor.storage_id);
+		const entry = uniqueActorStorageIds.get(actor.storageAlias);
 
 		if (entry != undefined) {
 			throw new UserError(
 				`Duplicate storage IDs for actors "${entry}" and "${actorName}". Actor storage IDs must be unique.`,
 			);
 		} else {
-			uniqueActorStorageIds.set(actor.storage_id, actorName);
+			uniqueActorStorageIds.set(actor.storageAlias, actorName);
 		}
 	}
 

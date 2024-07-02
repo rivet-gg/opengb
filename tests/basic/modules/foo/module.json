@@ -18,9 +18,7 @@
 		}
 	},
 	"actors": {
-		"ponger": {
-			"storage_id": "foobar"
-		}
+		"ponger": {}
 	},
 	"errors": {
 		"db_error": {}

@@ -27,6 +27,7 @@ export enum BuildRuntime {
 }
 
 export interface Module {
+	storageAlias: string;
 	scripts: Record<string, Script>;
 	actors: Record<string, Actor>;
 	errors: Record<string, ErrorConfig>;
@@ -61,7 +62,7 @@ export type ScriptRun<Req, Res, UserConfigT, DatabaseT, DatabaseSchemaT> = (
 export interface Actor {
 	// This monstrosity is to allow passing the constructor a subclass of ActorBase.
 	actor: new (...args: ConstructorParameters<typeof ActorBase<unknown, unknown>>) => ActorBase<unknown, unknown>;
-	storageId: string;
+	storageAlias: string;
 }
 
 export interface ErrorConfig {

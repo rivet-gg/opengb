@@ -51,11 +51,16 @@ export const ACTOR_DRIVER: ActorDriver = {
 	},
 };
 
-function getStub(moduleName: string, actorName: string, instance: string): DurableObjectStub<__GlobalDurableObject> {
+function getStub(
+	moduleName: string,
+	actorName: string,
+	instanceName: string,
+): DurableObjectStub<__GlobalDurableObject> {
 	const ns = Deno.env.get("__GLOBAL_DURABLE_OBJECT") as any as DurableObjectNamespace<__GlobalDurableObject>;
 
-	const storageId = ACTOR_DRIVER.config.modules[moduleName].actors[actorName].storageId;
-	const name = `%%${storageId}%%${instance}`;
+	const module = ACTOR_DRIVER.config.modules[moduleName];
+	const actor = module.actors[actorName];
+	const name = `%%${module.storageAlias}%%${actor.storageAlias}%%${instanceName}`;
 	const id = ns.idFromName(name);
 
 	return ns.get(id);

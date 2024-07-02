@@ -47,6 +47,8 @@ export interface Module {
 	 */
 	userConfigSchema?: tjs.Definition;
 
+	storageAlias: string;
+
 	scripts: Map<string, Script>;
 	actors: Map<string, Actor>;
 	db?: ModuleDatabase;
@@ -71,6 +73,10 @@ export async function loadModule(
 
 	// Read config
 	const config = await readModuleConfig(modulePath);
+
+	// Deterine storage alias
+	const storageAlias = projectModuleConfig.storageAlias ?? name;
+	validateIdentifier(storageAlias, Casing.Snake);
 
 	// Find names of the expected scripts to find. Used to print error for extra scripts.
 	const scriptsPath = resolve(modulePath, "scripts");
@@ -144,9 +150,13 @@ export async function loadModule(
 			);
 		}
 
+		const storageAlias = config.actors[actorName].storageAlias ?? actorName;
+		validateIdentifier(storageAlias, Casing.Snake);
+
 		const actor: Actor = {
 			path: actorPath,
 			name: actorName,
+			storageAlias,
 			config: config.actors[actorName],
 		};
 		actors.set(actorName, actor);
@@ -164,6 +174,18 @@ export async function loadModule(
 		);
 	}
 
+	// Verify uniqueness of storage alias
+	for (const actorA of actors.values()) {
+		for (const actorB of actors.values()) {
+			if (actorA.name != actorB.name && actorA.storageAlias == actorB.storageAlias) {
+				throw new UserError(`Duplicate actor storage alias in module ${config.name}.`, {
+					details: `Conflicting actors for alias ${actorA.storageAlias}: ${actorA.name}, ${actorB.name}`,
+					path: moduleConfigPath(modulePath),
+				});
+			}
+		}
+	}
+
 	// Verify error names
 	for (const errorName in config.errors) {
 		validateIdentifier(errorName, Casing.Snake);
@@ -173,7 +195,7 @@ export async function loadModule(
 	let db: ModuleDatabase | undefined = undefined;
 	if (await exists(resolve(modulePath, "db"), { isDirectory: true })) {
 		db = {
-			schema: `module_${name.replace("-", "_")}`,
+			schema: `module_${storageAlias}`,
 		};
 	}
 
@@ -195,6 +217,7 @@ export async function loadModule(
 		userConfig,
 		config,
 		registry,
+		storageAlias,
 		scripts,
 		actors,
 		db,

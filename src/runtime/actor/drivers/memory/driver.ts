@@ -74,9 +74,10 @@ export const ACTOR_DRIVER: ActorDriver = {
 	},
 };
 
-async function getId(moduleName: string, actorName: string, label: string) {
-	const storageId = ACTOR_DRIVER.config.modules[moduleName].actors[actorName].storageId;
-	const name = `%%${storageId}%%${label}`;
+async function getId(moduleName: string, actorName: string, instanceName: string) {
+	const module = ACTOR_DRIVER.config.modules[moduleName];
+	const actor = module.actors[actorName];
+	const name = `%%${module.storageAlias}%%${actor.storageAlias}%%${instanceName}`;
 	return await hash(name);
 }
 

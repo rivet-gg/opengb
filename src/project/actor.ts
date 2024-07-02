@@ -6,6 +6,7 @@ import { ActorConfig } from "../config/module.ts";
 export interface Actor {
 	path: string;
 	name: string;
+	storageAlias: string;
 	config: ActorConfig;
 }
 

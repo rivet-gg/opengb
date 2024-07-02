@@ -51,6 +51,18 @@ export interface ProjectModuleConfig extends Record<string, unknown> {
 	 * The config that configures how this module is ran at runtime.
 	 */
 	config?: any;
+
+	/**
+	 * Used to store data in a consistent location in case the module name
+	 * changes.
+	 *
+	 * This is used to construct the Postgres database schema and actor
+	 * identifiers.
+	 *
+	 * **IMPORTANT** Changing this will effectively unlink all data stored in
+	 * this module. Changing it back to the old value will restore the data.
+	 */
+	storageAlias?: string;
 }
 
 export interface RuntimeConfig {

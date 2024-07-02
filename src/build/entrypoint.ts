@@ -193,6 +193,8 @@ function generateModImports(project: Project, opts: BuildOpts) {
 	for (const mod of project.modules.values()) {
 		modConfig += `${JSON.stringify(mod.name)}: {`;
 
+		modConfig += `"storageAlias": ${JSON.stringify(mod.storageAlias)},`;
+
 		// Generate script configs
 		modConfig += "scripts: {";
 		for (const script of mod.scripts.values()) {
@@ -218,7 +220,7 @@ function generateModImports(project: Project, opts: BuildOpts) {
 
 			modConfig += `${JSON.stringify(actor.name)}: {`;
 			modConfig += `actor: ${actorIdent},`;
-			modConfig += `storageId: ${JSON.stringify(actor.config.storage_id)},`;
+			modConfig += `storageAlias: ${JSON.stringify(actor.storageAlias)},`;
 			modConfig += `},`;
 		}
 		modConfig += "},";

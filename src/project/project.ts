@@ -79,6 +79,18 @@ export async function loadProject(opts: LoadProjectOpts, signal?: AbortSignal): 
 		modules.set(projectModuleName, module);
 	}
 
+	// Verify uniqueness of storage alias
+	for (const moduleA of modules.values()) {
+		for (const moduleB of modules.values()) {
+			if (moduleA.name != moduleB.name && moduleA.storageAlias == moduleB.storageAlias) {
+				throw new UserError("Duplicate module storage alias.", {
+					details: `Conflicting modules for alias ${moduleA.storageAlias}: ${moduleA.name}, ${moduleB.name}`,
+					path: projectConfigPath(projectRoot),
+				});
+			}
+		}
+	}
+
 	// Verify existince of module dependencies
 	const missingDepsByModule = new Map<string, string[]>();
 	for (const module of modules.values()) {
