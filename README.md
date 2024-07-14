@@ -33,7 +33,7 @@ deno install -n opengb -fgA https://raw.githubusercontent.com/rivet-gg/opengb/v0
 After cloning the repo, run:
 
 ```
-git clone https://github.com/rivet-gg/opengb.git
+git clone --recurse-submodules https://github.com/rivet-gg/opengb.git
 cd opengb
 deno task cli:install
 ```

@@ -1,5 +1,4 @@
-import { resolve } from "./deps.ts";
-import { glob } from "./deps.ts";
+import { encoding, glob, resolve } from "./deps.ts";
 
 /**
  * Path to the root of the repo. Used for reading & writing files to the
@@ -46,7 +45,7 @@ export async function buildArtifacts(
 		let content: string;
 		if (encode == "base64") {
 			const data = await Deno.readFile(resolve(rootPath, file));
-			content = btoa(new Uint8Array(data).reduce((acc, byte) => acc + String.fromCharCode(byte), ""));
+			content = encoding.encodeBase64(new Uint8Array(data));
 		} else if (encode == "string") {
 			content = await Deno.readTextFile(resolve(rootPath, file));
 		} else {

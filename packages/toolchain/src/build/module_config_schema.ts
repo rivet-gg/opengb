@@ -2,7 +2,7 @@ import { Module, Project } from "../project/mod.ts";
 import { runJob } from "../utils/worker_pool.ts";
 import { WorkerRequest, WorkerResponse } from "./module_config_schema.worker.ts";
 import { createWorkerPool } from "../utils/worker_pool.ts";
-import { configPath, hasUserConfigSchema } from "../project/module.ts";
+import { hasUserConfigSchema, mainConfigPath } from "../project/module.ts";
 import { convertSerializedSchemaToZod, schemaElements } from "./schema/mod.ts";
 import { ValidationError } from "../error/mod.ts";
 
@@ -16,7 +16,7 @@ export interface CompileModuleConfigSchemaOpts {
 }
 
 export async function compileModuleConfigSchema(
-	_project: Project,
+	project: Project,
 	module: Module,
 	opts: CompileModuleConfigSchemaOpts,
 ): Promise<void> {
@@ -45,7 +45,7 @@ export async function compileModuleConfigSchema(
 	if (!result.success) {
 		throw new ValidationError(`Invalid config for module "${module.name}".`, {
 			validationError: result.error,
-			path: configPath(module),
+			path: mainConfigPath(project),
 		});
 	}
 }

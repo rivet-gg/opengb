@@ -1,4 +1,3 @@
-import { resolve } from "../deps.ts";
 import { Module } from "./module.ts";
 import { Project, projectGenPath } from "./project.ts";
 import { ActorConfig } from "../config/module.ts";

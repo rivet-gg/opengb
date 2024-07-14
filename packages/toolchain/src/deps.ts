@@ -20,3 +20,4 @@ export * as esbuild from "https://deno.land/x/esbuild@v0.20.2/mod.js";
 export { denoPlugins } from "jsr:@luca/esbuild-deno-loader@^0.10.3";
 
 export * as glob from "https://esm.sh/glob@^10.3.10";
+export * as encoding from "jsr:@std/encoding/base64";
