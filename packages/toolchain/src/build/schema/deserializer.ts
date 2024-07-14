@@ -232,7 +232,7 @@ function writeZodSourceCode(writer: CodeBlockWriter, schema: AnySchemaElement): 
 				writer.write(", ");
 			}
 		});
-		return writer.write(`})`);
+		return writer.write(`}).strict()`);
 	}
 	if (is("record", schema)) {
 		writer.write(`z.record(`);

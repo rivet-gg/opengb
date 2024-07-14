@@ -464,6 +464,10 @@ export function configPath(module: Module): string {
 	return resolve(module.path, "config.ts");
 }
 
+export function mainConfigPath(project: Project): string {
+	return resolve(project.path, "backend.json");
+}
+
 export async function hasUserConfigSchema(module: Module): Promise<boolean> {
 	if (module._hasUserConfigSchema === undefined) {
 		module._hasUserConfigSchema = await exists(configPath(module));

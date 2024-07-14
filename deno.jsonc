@@ -14,14 +14,17 @@
 		// Installs the CLI on the local machine
 		"cli:install": "deno task artifacts:build && deno install --allow-net --allow-read --allow-env --allow-run --allow-write --allow-sys --name opengb --force packages/cli/src/main.ts",
 
-    // Build Dockerfile
+		// Build Dockerfile
 		"docker:build": "docker build -t opengb -f cli.Dockerfile .",
 
 		// Generates schema
+    //
+    // Build all does not include web since it requires a FONTAWESOME_PACKAGE_TOKEN
 		"artifacts:build": "deno task format && deno task artifacts:build:runtime && deno task artifacts:build:dynamic && deno task artifacts:build:prisma",
 		"artifacts:build:runtime": "deno run --allow-env --allow-read --allow-write scripts/artifacts/build_runtime_archive.ts",
 		"artifacts:build:dynamic": "deno run --allow-env --allow-read --allow-write scripts/artifacts/build_dynamic_archive.ts",
 		"artifacts:build:prisma": "deno run --allow-env --allow-read --allow-write --allow-run scripts/artifacts/build_prisma_archive.ts",
+		"artifacts:build:web": "deno run --allow-env --allow-read --allow-write --allow-run scripts/artifacts/build_web_archive.ts",
 
 		// Format
 		"format": "deno fmt packages/",
@@ -52,30 +55,30 @@
 		"lineWidth": 120,
 		"useTabs": true
 	},
-  "imports": {
-    // HACK: Allow using `deno check` with Cloudflare scripts
-    "cloudflare:workers": "npm:@cloudflare/workers-types"
-  },
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "useUnknownInCatchVariables": true,
-    "alwaysStrict": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "exactOptionalPropertyTypes": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    // "noPropertyAccessFromIndexSignature": true,
-    "allowUnusedLabels": true,
-    "allowUnreachableCode": true,
-    "noImplicitAny": true
-  }
+	"imports": {
+		// HACK: Allow using `deno check` with Cloudflare scripts
+		"cloudflare:workers": "npm:@cloudflare/workers-types"
+	},
+	"compilerOptions": {
+		"strict": true,
+		"noImplicitAny": true,
+		"strictNullChecks": true,
+		"strictFunctionTypes": true,
+		"strictBindCallApply": true,
+		"strictPropertyInitialization": true,
+		"noImplicitThis": true,
+		"useUnknownInCatchVariables": true,
+		"alwaysStrict": true,
+		// "noUnusedLocals": true,
+		// "noUnusedParameters": true,
+		// "exactOptionalPropertyTypes": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		// "noPropertyAccessFromIndexSignature": true,
+		"allowUnusedLabels": true,
+		"allowUnreachableCode": true,
+		"noImplicitAny": true
+	}
 }
