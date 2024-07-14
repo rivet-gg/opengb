@@ -69,7 +69,7 @@ export const convertSchemaToZod = (
 					[name, type],
 				) => [name, convertSchemaToZod(type)]),
 			),
-		);
+		).strict();
 	}
 	if (is("record", schema)) {
 		return zod.record(convertSchemaToZod(schema.elementType));

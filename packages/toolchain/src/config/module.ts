@@ -98,6 +98,11 @@ export const ModuleSchema = z.object({
 
 export type ModuleConfig = z.infer<typeof ModuleSchema>;
 
+export type IndexedModuleConfig = Pick<
+	z.infer<typeof ModuleSchema>,
+	"name" | "icon" | "description" | "status" | "defaultConfig" | "dependencies" | "tags"
+>;
+
 export type ModuleStatus = Exclude<z.infer<typeof ModuleSchema>["status"], undefined>;
 
 export type ScriptConfig = z.infer<typeof ScriptConfigSchema>;

@@ -1,14 +1,18 @@
 import { emptyDir, exists, resolve } from "../deps.ts";
-import { RegistryConfig, RegistryConfigGit, RegistryConfigLocal } from "../config/project.ts";
+import type { RegistryConfig, RegistryConfigGit, RegistryConfigLocal } from "../config/project.ts";
 import { progress, warn } from "../term/status.ts";
 import { UnreachableError, UserError } from "../error/mod.ts";
 import { CommandError } from "../error/mod.ts";
 import registryDefaultReg from "./registry_default_rev.json" with { type: "json" };
+import { Casing } from "../types/identifiers/defs.ts";
+import { validateIdentifier } from "../types/identifiers/mod.ts";
+import { type IndexedModuleConfig, readConfig as readModuleConfig } from "../config/module.ts";
 
 export interface Registry {
 	path: string;
 	name: string;
 	config: RegistryConfig;
+	modules: Record<string, IndexedModuleConfig>;
 
 	/**
 	 * If the source code for this registry does not belong to this project.
@@ -40,12 +44,39 @@ export async function loadRegistry(
 		throw new UnreachableError(config);
 	}
 
+	const modules = await indexRegistryModules(output);
+
 	return {
 		path: output.path,
 		name,
 		config,
+		modules,
 		isExternal: output.isExternal,
 	};
+}
+
+async function indexRegistryModules(registry: ResolveRegistryOutput): Promise<Record<string, IndexedModuleConfig>> {
+	const modules = new Map<string, IndexedModuleConfig>();
+	for await (const dirEntry of Deno.readDir(registry.path)) {
+		if (!dirEntry.isDirectory) {
+			continue;
+		}
+
+		try {
+			validateIdentifier(dirEntry.name, Casing.Snake);
+			const modulePath = resolve(registry.path, dirEntry.name);
+			await exists(resolve(modulePath, "module.json"));
+
+			const { status, name, description, icon, dependencies, defaultConfig, tags } = await readModuleConfig(
+				modulePath,
+			);
+			modules.set(dirEntry.name, { status, name, description, icon, dependencies, defaultConfig, tags });
+		} catch {
+			// ignore this module
+		}
+	}
+
+	return Object.fromEntries(modules.entries());
 }
 
 export async function loadDefaultRegistry(projectRoot: string, signal?: AbortSignal): Promise<Registry> {
