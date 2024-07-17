@@ -184,3 +184,16 @@ Deno.test("schema deserializer should handle Date type", () => {
 		}`,
 	);
 });
+
+Deno.test("schema deserializer should handle unknown type", () => {
+	const schema = s.object({
+		value: s.unknown(),
+	});
+
+	assert(
+		convertSerializedSchemaToTypeScript(schema, { name: "Type" }),
+		`interface Type {
+		value: unknown
+		}`,
+	);
+});

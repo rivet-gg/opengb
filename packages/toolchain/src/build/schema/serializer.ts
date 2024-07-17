@@ -11,14 +11,13 @@ function generateSerializableTypeSchema(
 	const symbol = type.getSymbol();
 	const symbolDeclartion = symbol?.getDeclarations()[0];
 
-	// @ts-ignore
-	console.log(
-		symbol?.getEscapedName(),
-		// symbol?.getJsDocTags(),
-		symbolDeclartion?.getText(true),
-		symbol?.getDeclarations().length,
-		// Node.isJSDocable(symbolDeclartion) ? symbolDeclartion.getJsDocs()[0]?.print() : null,
-	);
+
+	if (type.isUnknown()) {
+		if (modifiers.isOptional) {
+			return s.optional(s.unknown());
+		}
+		return s.unknown();
+	}
 
 	// modifiers come first
 	if (modifiers.isOptional) {
@@ -41,7 +40,6 @@ function generateSerializableTypeSchema(
 			return s.date();
 		}
 	}
-
 	// primitives first
 	if (type.isUndefined()) {
 		return s.undefined();
@@ -151,33 +149,29 @@ function generateSerializableDeclarationSchema(
 		Node.isClassDeclaration(declaration)
 	) {
 		const heriatageClauses = declaration.getHeritageClauses();
-		const heriatageClausesSchemas = heriatageClauses.map((clause) => {
+		const heriatageClausesSchemas = heriatageClauses.flatMap((clause) => {
 			return clause.getTypeNodes().map((typeNode) => {
 				return generateSerializableTypeSchema(typeNode.getType()!);
 			});
-		}).flat();
-
-		const props = declaration.getProperties().map((prop) => {
-			return [
-				prop.getName(),
-				generateSerializableTypeSchema(prop.getType()!, {
-					isOptional: prop.hasQuestionToken(),
-				}),
-			];
 		});
 
-		return s.object({
-			...Object.fromEntries(props),
-			...heriatageClausesSchemas.reduce((acc, schema) => {
-				if (is("object", schema)) {
-					return {
-						...acc,
-						...schema.properties,
-					};
-				}
-				return acc;
-			}, {}),
-		});
+		const schema = generateSerializableTypeSchema(declaration.getType());
+		if (is("object", schema)) {
+			return {
+				...schema,
+				properties: {
+					...heriatageClausesSchemas.reduce((acc, schema) => {
+						if (is("object", schema)) {
+							Object.assign(acc, schema.properties);
+						}
+						return acc;
+					}, {}),
+					...schema.properties,
+				},
+			};
+		}
+
+		return schema;
 	}
 	if (Node.isTypeAliasDeclaration(declaration)) {
 		const type = declaration.getType();

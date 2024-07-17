@@ -491,6 +491,22 @@ Deno.test("schema serializer should handle unknown types", () => {
 	);
 });
 
+Deno.test("schema serializer should handle unknown types (with unknown type)", () => {
+	const code = `
+		interface Type {
+			propA: unknown;
+		}
+	`;
+
+	const serializer = createSchemaSerializer({ code });
+	assertEquals(
+		serializer.serialize("Type"),
+		schemaElements.object({
+			propA: schemaElements.unknown(),
+		}),
+	);
+});
+
 Deno.test.ignore("schema serializer should handle imported types (users.create)", () => {
 	// for this test we're going to use already created file with types
 	// for this purpose I'm going to use the create.ts file from the users module
@@ -525,6 +541,23 @@ Deno.test.ignore("schema serializer should handle imported types (auth config)",
 				fromEmail: schemaElements.string(),
 				fromName: schemaElements.optional(schemaElements.string()),
 			})),
+		}),
+	);
+});
+
+Deno.test.ignore("schema serializer should handle imported types (rivet.call)", () => {
+	// for this test we're going to use already created file with types
+	// for this purpose I'm going to use the create.ts file from the users module
+	// if you're going to use this test in the future, make sure to update the path (if needed)
+	const serializer = createSchemaSerializer({
+		path: resolve(Deno.cwd() + "./../opengb-modules/modules/rivet/scripts/call.ts"),
+	});
+	assertEquals(
+		serializer.serialize("Request"),
+		schemaElements.object({
+			method: schemaElements.string(),
+			path: schemaElements.string(),
+			body: schemaElements.optional(schemaElements.unknown()),
 		}),
 	);
 });
