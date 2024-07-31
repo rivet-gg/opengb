@@ -1,406 +1,118 @@
 #!/usr/bin/env deno run -A
 
 import { resolve } from "https://deno.land/std@0.214.0/path/mod.ts";
-import { emptyDir } from "https://deno.land/std@0.208.0/fs/mod.ts";
-import { assert, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { emptyDir, copy } from "https://deno.land/std@0.208.0/fs/mod.ts";
 import { zod2md } from "npm:zod2md";
 import { ModuleMeta, ProjectMeta } from "../../../packages/toolchain/src/build/meta.ts";
 import { convertSerializedSchemaToZodConstant } from "../../../packages/toolchain/src/build/schema/deserializer.ts";
+import { readline } from "https://deno.land/x/readline@v1.1.0/mod.ts";
+import * as Project from "./project.ts";
+import { renderModule } from "./module.ts";
 
+// MARK: Paths
 const DOCS_ROOT = resolve(import.meta.dirname!, "..", "..");
 const OPENGB_ROOT = resolve(
 	DOCS_ROOT,
 	"..",
 );
-const TEST_PROJECT_PATH = resolve(
-	DOCS_ROOT,
-	"..",
-	"..",
-	"opengb-modules",
-	"tests",
-	"basic",
-);
 
-if (!Deno.env.get("SKIP_BUILD_MODULES")) {
-	if (!Deno.env.get("SKIP_BUILD_OPENGB")) {
-		console.log("Build OpenGB CLI");
-		const installOutput = await new Deno.Command("deno", {
-			args: ["task", "artifacts:build"],
-			cwd: OPENGB_ROOT,
-			stdout: "inherit",
-			stderr: "inherit",
-		}).output();
-		assert(installOutput.success);
-	}
+const TEST_PROJECT_PATH = (() => {
+	const envProjectPath = Deno.env.get("TEST_PROJECT_PATH");
+	if (envProjectPath) return resolve(envProjectPath);
+	else return resolve(
+		DOCS_ROOT,
+		"..",
+		"..",
+		"opengb-modules",
+		"tests",
+		"basic",
+	);
+})();
 
-	console.log("Building project");
-	const buildOutput = await new Deno.Command("deno", {
-		args: [
-			"run",
-			"-A",
-			resolve(OPENGB_ROOT, "packages", "cli", "src", "main.ts"),
-			"--path",
-			TEST_PROJECT_PATH,
-			"build",
-		],
-		stdout: "inherit",
-		stderr: "inherit",
-	}).output();
-	assert(buildOutput.success);
-}
 
-console.log("Reading meta");
-const metaRaw = await Deno.readTextFile(
-	resolve(TEST_PROJECT_PATH, ".opengb", "meta.json"),
-);
-const meta = JSON.parse(metaRaw) as ProjectMeta;
-
-// Clear modules
-const TEMPLATES_PATH = resolve(DOCS_ROOT, "_internal", "templates");
 const DOCS_MODULES_PATH = resolve(DOCS_ROOT, "modules");
-await emptyDir(DOCS_MODULES_PATH);
 
-// Load templates
-const TEMPLATES = {
-	modulesOverview: await Deno.readTextFile(
-		resolve(TEMPLATES_PATH, "modules_overview.mdx"),
-	),
-	moduleOverview: await Deno.readTextFile(
-		resolve(TEMPLATES_PATH, "module_overview.mdx"),
-	),
-	moduleConfig: await Deno.readTextFile(resolve(TEMPLATES_PATH, "module_config.mdx")),
-	script: await Deno.readTextFile(
-		resolve(TEMPLATES_PATH, "script.mdx"),
-	),
-	examplePrivate: await Deno.readTextFile(
-		resolve(TEMPLATES_PATH, "example_private.mdx"),
-	),
-	examplePublic: await Deno.readTextFile(
-		resolve(TEMPLATES_PATH, "example_public.mdx"),
-	),
-	projectConfig: await Deno.readTextFile(resolve(TEMPLATES_PATH, "project_config.mdx")),
+export const ctx = {
+	docsRoot: DOCS_ROOT,
+	openGBRoot: OPENGB_ROOT,
+	testProjectPath: TEST_PROJECT_PATH,
+	docsModulesPath: DOCS_MODULES_PATH,
 };
 
-// Sort modules
-for (let key in meta.modules) {
-	if (!meta.modules[key].config.name) {
-		throw new Error(`Module missing name: ${key}`);
-	}
-}
-const modulesSorted = Object.entries(meta.modules)
-	.sort((a, b) => a[1].config.name!.localeCompare(b[1].config.name!));
-
-// Generate introduction
-await generateModuleCards();
-await generateModulesOverview();
-console.log("Generating project config");
-await generateProjectConfig();
-console.log("Generating module config");
-await generateModuleConfig();
-
-// Generate modules
-const modulesNav: any = {
-	"group": "Modules",
-	"pages": [
-		"modules/overview",
-	],
-};
-for (const [moduleName, module] of modulesSorted) {
-	await generateModule(moduleName, module);
+export function join(...lines: string[]) {
+	return lines.join("\n");
 }
 
-// Write navigation
-const mintTemplate = JSON.parse(
-	await Deno.readTextFile(
-		resolve(DOCS_ROOT, "mint.template.json"),
-	),
-);
-mintTemplate.navigation.push(modulesNav);
-await Deno.writeTextFile(
-	resolve(DOCS_ROOT, "mint.json"),
-	JSON.stringify(mintTemplate, null, 2),
-);
+// MARK: Templates/Components
+export interface Templates {
+	modulesOverview: string;
+	moduleOverview: string;
+	moduleConfig: string;
+	script: string;
+	examplePrivate: string;
+	examplePublic: string;
+	projectConfig: string;
+}
 
-async function generateModuleCards() {
-	const moduleCards = modulesSorted
-		.map(([moduleName, module]) => {
-			return `
-        <Card title="${module.config.name}" icon="${module.config.icon}" href="/modules/${moduleName}/overview">
-          <div>${module.config.description}</div>
-          <Tags tags={${JSON.stringify([module.config.status, ...module.config.tags!])}} />
-        </Card>
-      `;
-		});
-	const source = `export const ModuleCards = ({ cols }) => (
-<>
-	<p>These modules are thoroughly reviewed, tested, and documented to help you get your game backend up and running as quickly as possible. Learn more about <a href="/build">creating your own module</a> and <a href="/docs/registries">using your own registries</a>.</p>
+async function loadTemplates(): Promise<Templates> {
+	// Load templates
+	console.log("Loading templates");
 
-	<CardGroup cols={cols ?? 2}>
-		<Card title="Build your own" icon="plus" href="/build" />
-		${moduleCards.join("")}
-	</CardGroup>
-</>
-);
-`;
-	await Deno.writeTextFile(
-		resolve(DOCS_ROOT, "snippets", "module-cards.mdx"),
-		source,
+	const TEMPLATES_PATH = resolve(DOCS_ROOT, "_internal", "templates");
+	const [
+		modulesOverview,
+		moduleOverview,
+		moduleConfig,
+		script,
+		examplePrivate,
+		examplePublic,
+		projectConfig,
+	] = await Promise.all([
+		Deno.readTextFile(resolve(TEMPLATES_PATH, "modules_overview.mdx")),
+		Deno.readTextFile(resolve(TEMPLATES_PATH, "module_overview.mdx")),
+		Deno.readTextFile(resolve(TEMPLATES_PATH, "module_config.mdx")),
+		Deno.readTextFile(resolve(TEMPLATES_PATH, "script.mdx")),
+		Deno.readTextFile(resolve(TEMPLATES_PATH, "example_private.mdx")),
+		Deno.readTextFile(resolve(TEMPLATES_PATH, "example_public.mdx")),
+		Deno.readTextFile(resolve(TEMPLATES_PATH, "project_config.mdx")),
+	]);
+	return {
+		modulesOverview,
+		moduleOverview,
+		moduleConfig,
+		script,
+		examplePrivate,
+		examplePublic,
+		projectConfig,
+	};
+}
+
+function moduleCard(moduleName: string, module: ModuleMeta) {
+	return join(
+		`<Card title="${module.config.name}" icon="${module.config.icon}" href="/modules/${moduleName}/overview">`,
+		`  <div>${module.config.description}</div>`,
+		`  <Tags tags={${JSON.stringify([module.config.status, ...module.config.tags!])}} />`,
+		`</Card>`,
 	);
 }
 
-async function generateModulesOverview() {
-	await Deno.writeTextFile(
-		resolve(DOCS_ROOT, "modules", "overview.mdx"),
-		TEMPLATES.modulesOverview,
+function moduleCards(modulesSorted: [string, ModuleMeta][]) {
+	const moduleCards = modulesSorted.map(([moduleName, module]) => moduleCard(moduleName, module));
+	return join(
+		`export const ModuleCards = ({ cols }) => (`,
+		`  <>`,
+		`    <p>These modules are thoroughly reviewed, tested, and documented to help you get your game backend up and running as quickly as possible. Learn more about <a href="/build">creating your own module</a> and <a href="/docs/registries">using your own registries</a>.</p>`,
+
+		`    <CardGroup cols={cols ?? 2}>`,
+		`      <Card title="Build your own" icon="plus" href="/build" />`,
+		`      ${moduleCards.join("")}`,
+		`    </CardGroup>`,
+		`  </>`,
+		`);`,
 	);
 }
 
-async function generateProjectConfig() {
-	const configSchema = await genMarkdownDocsFromFile(
-		resolve(OPENGB_ROOT, "packages", "toolchain", "src", "config", "project.ts"),
-	);
-	await Deno.writeTextFile(
-		resolve(DOCS_ROOT, "docs", "project-config.mdx"),
-		TEMPLATES.projectConfig.replace(/%%SCHEMA%%/g, configSchema)
-	);
-}
-
-async function generateModuleConfig() {
-	const configSchema = await genMarkdownDocsFromFile(
-		resolve(OPENGB_ROOT, "packages", "toolchain", "src", "config", "module.ts"),
-	);
-	await Deno.writeTextFile(
-		resolve(DOCS_ROOT, "docs", "build", "module-config.mdx"),
-		`---
-title: "Config (module.json)"
-icon: square-sliders
----
-
-# Schema
-
-${configSchema}
-`,
-	);
-}
-
-async function generateModule(moduleName: string, module: ModuleMeta) {
-	console.log("Generating module", moduleName);
-
-	// Validate module
-	assertExists(module.config.name, `Missing name for module "${moduleName}"`);
-	assertExists(
-		module.config.description,
-		`Missing description for module "${moduleName}"`,
-	);
-	assertExists(module.config.icon, `Missing icon for module "${moduleName}"`);
-	assertExists(module.config.tags, `Missing tags for module "${moduleName}"`);
-	assertExists(
-		module.config.status,
-		`Missing status for module "${moduleName}"`,
-	);
-
-	// Validate scripts
-	for (let key in module.scripts) {
-		if (!module.scripts[key].config.name) {
-			throw new Error(`Script missing name: ${moduleName}.${key}`);
-		}
-	}
-	const scriptsSorted = Object.entries(module.scripts)
-		.sort((a, b) => a[1].config.name!.localeCompare(b[1].config.name!));
-	for (const [scriptName, script] of scriptsSorted) {
-		assertExists(script.config.name, `Missing name for script "${scriptName}"`);
-	}
-
-	// Valdiate errors
-	if (module.config.errors) {
-		for (const [errorName, error] of Object.entries(module.config.errors)) {
-			assertExists(error.name, `Missing name for error "${errorName}"`);
-		}
-	}
-
-	// Sort scripts
-	const publicScripts = Object.entries(meta.modules[moduleName].scripts)
-		.filter(([_, x]) => x.config.public);
-	const internalScripts = Object.entries(meta.modules[moduleName].scripts)
-		.filter(([_, x]) => !x.config.public);
-
-	// Add nav
-	let pages: any[] = [`modules/${moduleName}/overview`];
-	if (module.hasUserConfigSchema) {
-		pages.push(`modules/${moduleName}/config`);
-	}
-	if (publicScripts.length > 0) {
-		pages.push({
-			"group": "Scripts (Public)",
-			"pages": publicScripts
-				.sort((a, b) => a[1].config.name!.localeCompare(b[1].config.name!))
-				.map(([scriptName]) => `modules/${moduleName}/scripts/${scriptName}`),
-		});
-	}
-	if (internalScripts.length > 0) {
-		pages.push({
-			"group": "Scripts (Internal)",
-			"pages": internalScripts
-				.sort((a, b) => a[1].config.name!.localeCompare(b[1].config.name!))
-				.map(([scriptName]) => `modules/${moduleName}/scripts/${scriptName}`),
-		});
-	}
-	modulesNav.pages.push({
-		"icon": module.config.icon,
-		"group": module.config.name,
-		"pages": pages,
-	});
-
-	const modulePath = resolve(DOCS_MODULES_PATH, moduleName);
-	await emptyDir(modulePath);
-
-	// Render
-	let dependencies: string;
-	if (
-		module.config.dependencies &&
-		Object.keys(module.config.dependencies).length > 0
-	) {
-		dependencies = Object.keys(module.config.dependencies)
-			.map((dep) => meta.modules[dep])
-			.sort((a, b) => a.config.name!.localeCompare(b.config.name!))
-			.map((module) => `- [${module.config.name}](/modules/${module.name}/overview)`)
-			.join("\n");
-	} else {
-		dependencies = "_No dependencies_";
-	}
-
-	let install: string;
-	if (module.hasUserConfigSchema) {
-		install = `"modules": {
-	"${moduleName}": {
-		"config": {
-			// Your config here. See config docs for more details.
-		}
-	}
-}
-`;
-	} else {
-		install = `"modules": {
-	"${moduleName}": {}
-}
-`;
-	}
-
-	let authors: string;
-	if (module.config.authors) {
-		authors = module.config.authors
-			.map((author) => `- [${author}](https://github.com/${author})`)
-			.join("\n");
-	} else {
-		authors = "_No authors_";
-	}
-
-	const publicScriptCards = publicScripts
-		.map(([scriptName, script]) =>
-			`<Card title="${script.config.name}" href="/modules/${moduleName}/scripts/${scriptName}">${
-				script.config.description ?? ""
-			}</Card>`
-		);
-	const internalScriptCards = internalScripts
-		.map(([scriptName, script]) =>
-			`<Card title="${script.config.name}" href="/modules/${moduleName}/scripts/${scriptName}">${
-				script.config.description ?? ""
-			}</Card>`
-		);
-
-	let errors: string;
-	if (module.config.errors) {
-		errors = Object.entries(module.config.errors)
-			.sort((a, b) => a[1].name!.localeCompare(b[1].name!))
-			.map(([errorName, error]) => `- **${error.name}** (\`${errorName}\`) ${error.description ?? ""}`)
-			.join("\n");
-	} else {
-		errors = "_No errors_";
-	}
-
-	let configSection = "";
-	if (module.hasUserConfigSchema) {
-		configSection += `
-## Config
-
-<Card title="View Config" icon="square-sliders" href="/modules/${moduleName}/config"></Card>
-
-`
-	}
-
-	// Generate overview
-	const overview = TEMPLATES.moduleOverview
-		.replace(/%%NAME%%/g, moduleName)
-		.replace(/%%DISPLAY_NAME%%/g, module.config.name!)
-		.replace(/%%STATUS%%/g, module.config.status!)
-		.replace(/%%DATABASE%%/g, module.db ? "Yes" : "No")
-		.replace(/%%AUTHORS%%/g, authors)
-		.replace(/%%DEPENDENCIES%%/g, dependencies)
-		.replace(/%%DESCRIPTION%%/g, module.config.description!)
-		.replace(/%%INSTALL_CONFIG%%/g, install)
-		.replace(/%%CONFIG%%/g, configSection)
-		.replace(/%%SCRIPTS_PUBLIC%%/g, publicScripts.length > 0 ? publicScriptCards.join("") : "_No public scripts._")
-		.replace(
-			/%%SCRIPTS_INTERNAL%%/g,
-			internalScripts.length > 0 ? internalScriptCards.join("") : "_No internal scripts._",
-		)
-		.replace(/%%ERRORS%%/g, errors);
-	await Deno.writeTextFile(resolve(modulePath, "overview.mdx"), overview);
-
-	await emptyDir(resolve(modulePath, "scripts"));
-	for (const [scriptName, script] of scriptsSorted) {
-		let requestExamples = "<RequestExample>\n";
-		requestExamples += TEMPLATES.examplePrivate;
-		if (script.config.public) {
-			requestExamples += TEMPLATES.examplePublic;
-		}
-		requestExamples += `\n</RequestExample>`;
-		requestExamples = requestExamples
-			.replace(/%%NAME%%/g, scriptName)
-			.replace(/%%NAME_CAMEL%%/g, script.nameCamel)
-			.replace(/%%NAME_PASCAL%%/g, script.namePascal)
-			.replace(/%%MODULE_NAME%%/g, moduleName)
-			.replace(/%%MODULE_NAME_CAMEL%%/g, module.nameCamel)
-			.replace(/%%MODULE_NAME_PASCAL%%/g, module.namePascal);
-
-		const scriptContent = TEMPLATES.script
-			.replace(/%%NAME%%/g, scriptName)
-			.replace(/%%NAME_CAMEL%%/g, script.nameCamel)
-			.replace(/%%NAME_PASCAL%%/g, script.namePascal)
-			.replace(/%%DISPLAY_NAME%%/g, script.config.name!)
-			.replace(/%%MODULE_NAME%%/g, moduleName)
-			.replace(/%%MODULE_NAME_CAMEL%%/g, module.nameCamel)
-			.replace(/%%MODULE_NAME_PASCAL%%/g, module.namePascal)
-			.replace(/%%MODULE_DISPLAY_NAME%%/g, module.config.name!)
-			.replace(/%%DESCRIPTION%%/g, script.config.description ?? "")
-			.replace(/%%PUBLIC%%/g, script.config.public ? "Yes" : "No")
-			.replace(/%%REQUEST_EXAMPLES%%/g, requestExamples)
-			.replace(
-				/%%REQUEST_SCHEMA%%/g,
-				await genMarkdownDocsFromSchema(script.requestSchema, "Request"),
-			)
-			.replace(
-				/%%RESPONSE_SCHEMA%%/g,
-				await genMarkdownDocsFromSchema(script.responseSchema, "Response"),
-			);
-		await Deno.writeTextFile(
-			resolve(modulePath, "scripts", `${scriptName}.mdx`),
-			scriptContent,
-		);
-
-		// MARK: Config
-		if (module.hasUserConfigSchema) {
-			const defaultValue = JSON.stringify(module.config.defaultConfig ?? {}, null, 4);
-			const configContent = TEMPLATES.moduleConfig
-				.replace(/%%MODULE_NAME%%/g, moduleName)
-				.replace(/%%SCHEMA%%/g, await genMarkdownDocsFromSchema(module.userConfigSchema!, "Config"))
-				.replace(/%%DEFAULT_VALUE%%/g, defaultValue);
-			await Deno.writeTextFile(resolve(modulePath, "config.mdx"), configContent);
-		}
-	}
-}
-
-async function genMarkdownDocsFromFile(entry: string) {
+export async function markdownDocsFromFile(entry: string) {
 	let markdown = await zod2md({
 		entry,
 		title: "",
@@ -409,13 +121,235 @@ async function genMarkdownDocsFromFile(entry: string) {
 	return markdown;
 }
 
-async function genMarkdownDocsFromSchema(schema: any, name: string) {
+export async function markdownDocsFromSchema(schema: any, name: string) {
 	let schemaTs = `import { z } from "npm:zod@3.23.8";\n`;
-	schemaTs += convertSerializedSchemaToZodConstant(schema, { name: "Config", export: true });
+	schemaTs += convertSerializedSchemaToZodConstant(schema, { name, export: true });
 
 	const tempFilePath = await Deno.makeTempFile({ suffix: ".ts" });
 	await Deno.writeTextFile(tempFilePath, schemaTs);
 
-	return await genMarkdownDocsFromFile(tempFilePath);
+	return await markdownDocsFromFile(tempFilePath);
 }
 
+
+// MARK: Generation
+async function generateModuleCards(modulesSorted: [string, ModuleMeta][]) {
+	await Deno.writeTextFile(
+		resolve(DOCS_ROOT, "snippets", "module-cards.mdx"),
+		moduleCards(modulesSorted),
+	);
+}
+
+async function generateModulesOverview(modulesOverviewTemplate: string) {
+	await Deno.writeTextFile(
+		resolve(DOCS_ROOT, "modules", "overview.mdx"),
+		modulesOverviewTemplate,
+	);
+}
+
+async function generateMintPlaceholder() {
+	function replacePagesWith(pages: any, replaceWith: string): any {
+		const newPages: any[] = [];
+		for (const page of pages) {
+			if (typeof page === "string") {
+				newPages.push(replaceWith);
+			} else {
+				newPages.push({
+					...page,
+					pages: replacePagesWith(page.pages, replaceWith),
+				});
+			}
+		}
+
+		return newPages;
+	}
+
+	const mint = JSON.parse(
+		await Deno.readTextFile(
+			resolve(DOCS_ROOT, "mint.json"),
+		),
+	);
+
+	// Replace pages with placeholder
+	const placeholderMint = {
+		...mint,
+		navigation: replacePagesWith(mint.navigation, "building"),
+	};
+
+	await Deno.writeTextFile(
+		resolve(DOCS_ROOT, "mint.json"),
+		JSON.stringify(placeholderMint, null, 2),
+	);
+}
+
+async function generateMintTemplate(modulesNav: any) {
+	const mintTemplate = JSON.parse(
+		await Deno.readTextFile(
+			resolve(DOCS_ROOT, "mint.template.json"),
+		),
+	);
+	mintTemplate.navigation.push(modulesNav);
+	await Deno.writeTextFile(
+		resolve(DOCS_ROOT, "mint.json"),
+		JSON.stringify(mintTemplate, null, 2),
+	);
+}
+
+async function generateProjectConfig(templates: Templates) {
+	const configSchema = await markdownDocsFromFile(
+		resolve(OPENGB_ROOT, "packages", "toolchain", "src", "config", "project.ts"),
+	);
+	await Deno.writeTextFile(
+		resolve(DOCS_ROOT, "docs", "project-config.mdx"),
+		templates.projectConfig.replace(/%%SCHEMA%%/g, configSchema)
+	);
+}
+async function generateModuleConfig() {
+	const configSchema = await markdownDocsFromFile(
+		resolve(OPENGB_ROOT, "packages", "toolchain", "src", "config", "module.ts"),
+	);
+	await Deno.writeTextFile(
+		resolve(DOCS_ROOT, "docs", "build", "module-config.mdx"),
+		join(
+			`---`,
+			`title: "Config (module.json)"`,
+			`icon: square-sliders`,
+			`---`,
+			``,
+			`# Schema`,
+			``,
+			`${configSchema}`,
+		),
+	);
+}
+
+async function generateModule(
+    templates: Templates,
+    moduleName: string,
+    module: ModuleMeta,
+    modulesNav: any,
+) {
+	const { overview, config, scripts, docsDir } = await renderModule(templates, moduleName, module, modulesNav);
+
+	const modulePath = resolve(ctx.docsModulesPath, moduleName);
+	await emptyDir(modulePath);
+	if (docsDir) await copy(docsDir, modulePath, { overwrite: true });
+
+
+	await emptyDir(resolve(modulePath, "scripts"));
+	for (const [scriptName, scriptContent] of Object.entries(scripts)) {
+		await Deno.writeTextFile(
+			resolve(modulePath, "scripts", `${scriptName}.mdx`),
+			scriptContent,
+		);
+	}
+	await Deno.writeTextFile(resolve(modulePath, "overview.mdx"), overview);
+	if (config) await Deno.writeTextFile(resolve(modulePath, "config.mdx"), config);
+}
+
+if (!Deno.env.get("SKIP_BUILD_MODULES")) {
+	if (!Deno.env.get("SKIP_BUILD_OPENGB")) {
+		await Project.buildOpenGB();
+	}
+
+	await Project.buildOpenGB();
+}
+
+async function generate(meta: ProjectMeta, templates: Templates, abortSignal: AbortSignal) {
+	// await copy(resolve(DOCS_ROOT, "mint.default.json"), resolve(DOCS_ROOT, "mint.json"), { overwrite: true });
+	generateMintPlaceholder();
+	await new Promise((resolve) => setTimeout(resolve, 300));
+
+	// Clear modules
+	await emptyDir(DOCS_MODULES_PATH);
+
+	if (abortSignal.aborted) return;
+
+	// Sort modules
+	for (let key in meta.modules) {
+		if (!meta.modules[key]!.config.name) {
+			throw new Error(`Module missing name: ${key}`);
+		}
+	}
+	const modulesSorted = Object.entries(meta.modules)
+		.sort((a, b) => a[1].config.name!.localeCompare(b[1].config.name!));
+
+		if (abortSignal.aborted) return;
+
+	// Generate introduction
+	await generateModuleCards(modulesSorted);
+	if (abortSignal.aborted) return;
+
+	await generateModulesOverview(templates.modulesOverview);
+	if (abortSignal.aborted) return;
+
+	console.log("Generating project config");
+	await generateProjectConfig(templates);
+	if (abortSignal.aborted) return;
+
+	console.log("Generating module config");
+	await generateModuleConfig();
+	if (abortSignal.aborted) return;
+
+	// Generate modules
+	const modulesNav: any = {
+		"group": "Modules",
+		"pages": [
+			"modules/overview",
+		],
+	};
+
+	for (const [moduleName, module] of modulesSorted) {
+		await generateModule(templates, moduleName, module, modulesNav);
+		if (abortSignal.aborted) return;
+	}
+
+	await generateMintTemplate(modulesNav);
+
+	console.log("Done generating docs!");
+}
+
+async function buildDocs(abortSignal: AbortSignal) {
+	const meta = await Project.readMeta();
+	const templates = await loadTemplates();
+	await generate(meta, templates, abortSignal);
+}
+
+
+// MARK: Main
+async function watcher(runMintlify: boolean) {
+	let controller = new AbortController();
+	if (runMintlify) mintlify();
+
+	for await (const _ of readline(Deno.stdin)) {
+		controller.abort();
+		controller = new AbortController();
+
+		console.log("Rebuilding docs...");
+		const signal = controller.signal;
+		buildDocs(signal);
+	}
+}
+
+function mintlify() {
+	const command = new Deno.Command(
+		"mintlify",
+		{
+			args: ["dev"],
+			cwd: ctx.docsRoot,
+			stdout: "inherit",
+			stdin: "null",
+		}
+	).spawn();
+
+	const signalListener = () => {
+		command.kill("SIGKILL");
+		Deno.removeSignalListener("SIGINT", signalListener);
+		Deno.exit();
+	}
+	Deno.addSignalListener("SIGINT", signalListener);
+}
+
+await buildDocs(new AbortController().signal);
+
+if (Deno.args.includes("-w")) watcher(Deno.args.includes("-m"));
