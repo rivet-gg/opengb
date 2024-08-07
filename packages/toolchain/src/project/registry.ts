@@ -35,6 +35,16 @@ export async function loadRegistry(
 		output = await resolveRegistryLocal(projectRoot, name, config.local);
 	} else if ("git" in config) {
 		output = await resolveRegistryGit(projectRoot, name, config.git, signal);
+	} else if ("github" in config) {
+		const gitConfig: RegistryConfigGit = {
+			url: {
+				https: `https://github.com/${config.github}.git`,
+				ssh: `git@github.com:${config.github}.git`,
+			},
+			tag: config.tag ?? "",
+		};
+
+		output = await resolveRegistryGit(projectRoot, name, gitConfig, signal);
 	} else {
 		// Unknown project config
 		throw new UnreachableError(config);

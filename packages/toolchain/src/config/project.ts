@@ -29,9 +29,18 @@ const RegistryGitConfigSchema = z.object({
 	]),
 });
 
+const RegistryGitHubConfigSchema = z.object({
+	github: z.string(),
+	tag: z.string().optional(),
+	branch: z.string().optional(),
+	rev: z.string().optional(),
+	directory: z.string().optional(),
+});
+
 const RegistryConfigSchema = z.union([
 	RegistryLocalConfigSchema,
 	RegistryGitConfigSchema,
+	RegistryGitHubConfigSchema,
 ]);
 
 const CorsConfigSchema = z.object({

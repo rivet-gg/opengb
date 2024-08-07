@@ -7,7 +7,6 @@ import { loadRegistry, Registry } from "./registry.ts";
 import { ProjectModuleConfig } from "../config/project.ts";
 import { validateIdentifier } from "../types/identifiers/mod.ts";
 import { Casing } from "../types/identifiers/defs.ts";
-import { loadDefaultRegistry } from "./registry.ts";
 import { UnreachableError, UserError } from "../error/mod.ts";
 import { Runtime } from "../build/mod.ts";
 import { PathResolver, QualifiedPathPair } from "../../../path_resolver/src/mod.ts";
@@ -64,8 +63,13 @@ export async function loadProject(opts: LoadProjectOpts, signal?: AbortSignal): 
 	}
 
 	if (!registries.has("default")) {
-		const defaultRegistry = await loadDefaultRegistry(projectRoot, signal);
-		registries.set("default", defaultRegistry);
+		throw new UserError("No default registry found.", {
+			path: projectConfigPath,
+			details: "Add this to your backend.json:\n\n" +
+				'  "registries": {\n' +
+				'    "default": { "github": "https://github.com/rivet-gg/opengb-modules.git" }\n' +
+				"  }\n",
+		});
 	}
 
 	// Validate local registry

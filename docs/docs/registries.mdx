@@ -12,18 +12,22 @@ Most mature game studios have registries configured like this inside of their ga
 ```json backend.json
 {
 	"registries": {
-    // Modules shared across multiple games
+		// Modules shared across multiple games
 		"shared": {
 			"git": {
 				"url": "https://github.com/my-studio/my-registry.git",
 				"directory": "./modules"
 			}
 		},
-    // Modules specific to this game
+		// Modules specific to this game
 		"local": {
 			"local": {
 				"directory": "./modules"
 			}
+		}
+		// Define a GitHub registry from its shorthand
+		"opengb-github": {
+			"github": "rivet-gg/opengb-modules"
 		}
 	},
 	"modules": {
@@ -50,14 +54,8 @@ The default config for the `default` registry is:
 {
 	"registries": {
 		"default": {
-			"git": {
-				"url": {
-					"https": "https://github.com/rivet-gg/opengb-modules.git",
-					"ssh": "git@github.com:rivet-gg/opengb-modules.git"
-				},
-				"directory": "./modules",
-				"rev": "foobar"
-			}
+			"github": "rivet-gg/opengb-modules",
+			"tag": "v1.0.0-rc.1",
 		}
 	}
 }
@@ -101,7 +99,7 @@ Example:
 		"local": {
 			"local": {
 				"directory": "./modules",
-        // Optional
+				// Optional
 				"isExternal": true
 			}
 		}
@@ -123,6 +121,24 @@ This uses the native Git CLI to fetch modules, so you can use private Git regist
 				"url": "https://github.com/my-studio/my-registry.git",
 				"directory": "./modules"
 			}
+		}
+	}
+}
+```
+
+### `github`
+
+This is a shorthand for a GitHub registry. It is the same as a `git` registry,
+but will derive the URL from the GitHub shorthand. You can also specify a tag or
+a rev.
+
+```json backend.json
+{
+	"registries": {
+		"github": {
+			"github": "rivet-gg/opengb-modules",
+			"tag": "v1.0.0-rc.1",
+			"rev": "foobar"
 		}
 	}
 }

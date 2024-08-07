@@ -7,11 +7,7 @@ export async function templateProject(rootPath: string) {
 	// Create backend.json
 	const defaultBackend: ProjectConfig = {
 		registries: {
-			local: {
-				local: {
-					directory: "modules",
-				},
-			},
+			default: { github: "rivet-gg/opengb-modules", tag: "v1.0.0-rc.1" },
 		},
 		modules: {
 			users: {},
