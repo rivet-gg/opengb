@@ -4,7 +4,6 @@ import { resolve } from "../../../toolchain/src/deps.ts";
 import { fetchAndResolveModule } from "../../../toolchain/src/project/mod.ts";
 import { ProjectModuleConfig } from "../../../toolchain/src/config/project.ts";
 import { UserError } from "../../../toolchain/src/error/mod.ts";
-import { loadProjectConfigPath } from "../../../toolchain/src/project/project.ts";
 
 export const moduleCommand = new Command<GlobalOpts>()
 	.description("Manage modules");

@@ -58,6 +58,7 @@ export async function generateMeta(project: Project) {
 			path: registry.path,
 			name: name,
 			config: registry.config,
+			modules: registry.modules,
 			isExternal: registry.isExternal,
 		}]),
 	);

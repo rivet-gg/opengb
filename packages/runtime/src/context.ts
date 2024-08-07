@@ -5,7 +5,7 @@ import { appendTraceEntry } from "./trace.ts";
 import { ActorProxies, buildActorRegistryProxy, buildDependencyRegistryProxy, RegistryCallMap } from "./proxy.ts";
 import { DependencyScriptCallFunction } from "./types/registry.ts";
 import { camelify } from "../../case_conversion/src/mod.ts";
-import { buildLogEntries, errorToLogEntries, LogEntry, logRaw, spreadObjectToLogEntries } from "./logger.ts";
+import { buildLogEntries, LogEntry, logRaw, spreadObjectToLogEntries } from "./logger.ts";
 import { LogLevel } from "./logger.ts";
 import { INTERNAL_ERROR_CODE, stringifyTrace } from "./mod.ts";
 import { Environment } from "./environment.ts";

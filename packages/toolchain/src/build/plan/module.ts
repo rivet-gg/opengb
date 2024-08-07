@@ -1,11 +1,13 @@
-import { BuildState, buildStep } from "../../build_state/mod.ts";
+import { BuildState, buildStep, waitForBuildPromises } from "../../build_state/mod.ts";
 import { assertExists, resolve } from "../../deps.ts";
 import { configPath, Module, Project } from "../../project/mod.ts";
 import { compileModuleHelper } from "../gen/mod.ts";
 import { compileModuleConfigSchema } from "../module_config_schema.ts";
 import { planScriptBuild } from "./script.ts";
 import { BuildOpts } from "../mod.ts";
-import { publicPath } from "../../project/module.ts";
+import { mainConfigPath, publicPath } from "../../project/module.ts";
+import { ValidationError } from "../../error/mod.ts";
+import { convertSerializedSchemaToZod } from "../schema/mod.ts";
 
 export async function planModuleBuild(
 	buildState: BuildState,
@@ -43,6 +45,26 @@ export async function planModuleBuild(
 
 			// Populate cache with response
 			buildState.cache.persist.moduleConfigSchemas[module.name] = module.userConfigSchema;
+		},
+	});
+
+	await waitForBuildPromises(buildState);
+
+	buildStep(buildState, {
+		id: `module.${module.name}.check`,
+		name: "Check",
+		description: "backend.json",
+		module,
+		async build() {
+			// Validate config
+			const validation = convertSerializedSchemaToZod(module.userConfigSchema!);
+			const result = await validation.safeParseAsync(module.userConfig);
+			if (!result.success) {
+				throw new ValidationError(`Invalid config for module "${module.name}".`, {
+					validationError: result.error,
+					path: mainConfigPath(project),
+				});
+			}
 		},
 	});
 

@@ -1,0 +1,3 @@
+[submodule "web"]
+	path = vendor/hub
+	url = https://github.com/rivet-gg/hub.git
