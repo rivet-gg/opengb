@@ -126,11 +126,11 @@ export class Context<Params extends ContextParams> {
 
 		// Log start
 		const scriptStart = performance.now();
-    if (this.internalRuntime.env.get("_OPENGB_LOG_SCRIPT_BODY") == "1") {
-      ctx.log.debug("script request", ...spreadObjectToLogEntries("request", request));
-    } else {
-      ctx.log.debug("script request");
-    }
+		if (this.internalRuntime.env.get("_OPENGB_LOG_SCRIPT_BODY") == "1") {
+			ctx.log.debug("script request", ...spreadObjectToLogEntries("request", request));
+		} else {
+			ctx.log.debug("script request");
+		}
 
 		// Execute script
 		const duration = Math.ceil(performance.now() - scriptStart);
@@ -141,18 +141,18 @@ export class Context<Params extends ContextParams> {
 		// `duration` will be 0 on Cloudflare Workers if there are no async
 		// actions performed inside of the request:
 		// https://developers.cloudflare.com/workers/runtime-apis/performance/
-    if (this.internalRuntime.env.get("_OPENGB_LOG_SCRIPT_BODY") == "1") {
-      ctx.log.debug(
-        "script response",
-        ...(duration > 0 ? [["duration", `${duration}ms`] as LogEntry] : []),
-        ...spreadObjectToLogEntries("response", res),
-      );
-    } else {
-      ctx.log.debug(
-        "script response",
-        ...(duration > 0 ? [["duration", `${duration}ms`] as LogEntry] : []),
-      );
-    }
+		if (this.internalRuntime.env.get("_OPENGB_LOG_SCRIPT_BODY") == "1") {
+			ctx.log.debug(
+				"script response",
+				...(duration > 0 ? [["duration", `${duration}ms`] as LogEntry] : []),
+				...spreadObjectToLogEntries("response", res),
+			);
+		} else {
+			ctx.log.debug(
+				"script response",
+				...(duration > 0 ? [["duration", `${duration}ms`] as LogEntry] : []),
+			);
+		}
 
 		const responseParseResult = await script.responseSchema.safeParseAsync<typeof res>(res);
 		if (!responseParseResult.success) {
