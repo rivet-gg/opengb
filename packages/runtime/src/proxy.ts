@@ -1,4 +1,4 @@
-import { Context, Runtime, Trace } from "./mod.ts";
+import { ActorContext, Context, ModuleContext, Runtime, Trace } from "./mod.ts";
 import { RequestOf, ResponseOf } from "./types/registry.ts";
 import { ActorProxy } from "./actor/proxy.ts";
 import { ContextParams } from "./context.ts";
@@ -156,11 +156,13 @@ export function buildActorRegistryProxy<ActorsSnakeT, ActorsCamelT>(
 	return new Proxy(actorMap, {
 		get: (_target: unknown, actorProp: string) => {
 			if (actorProp in actorMap) {
-				const pair = actorMap[actorProp as keyof typeof actorMap]!;
+				const [moduleName, actorName] = actorMap[actorProp as keyof typeof actorMap]!;
+
 				return new ActorProxy(
+					runtime,
 					runtime.actorDriver,
-					pair[0] as any,
-					pair[1] as any,
+					moduleName,
+					actorName,
 					trace,
 				);
 			} else {

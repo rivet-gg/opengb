@@ -42,7 +42,7 @@ export class Context<Params extends ContextParams> {
 	public constructor(
 		protected readonly internalRuntime: Runtime<Params>,
 		public readonly trace: Trace,
-		private readonly dependencyCaseConversionMap: RegistryCallMap,
+		protected readonly dependencyCaseConversionMap: RegistryCallMap,
 		protected readonly actorCaseConversionMap: RegistryCallMap,
 	) {
 		this.log = new ContextLog(this);
@@ -133,7 +133,6 @@ export class Context<Params extends ContextParams> {
 		}
 
 		// Execute script
-		const duration = Math.ceil(performance.now() - scriptStart);
 		const res = await ctx.runBlock(async () => await script.run(ctx, request));
 
 		// Log finish
@@ -141,6 +140,7 @@ export class Context<Params extends ContextParams> {
 		// `duration` will be 0 on Cloudflare Workers if there are no async
 		// actions performed inside of the request:
 		// https://developers.cloudflare.com/workers/runtime-apis/performance/
+		const duration = Math.ceil(performance.now() - scriptStart);
 		if (this.internalRuntime.env.get("_OPENGB_LOG_SCRIPT_BODY") == "1") {
 			ctx.log.debug(
 				"script response",
