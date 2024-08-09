@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1-rc.1](https://github.com/rivet-gg/opengb/compare/v1.0.0-rc.1...v1.0.1-rc.1) (2024-08-09)
+
+
+### Continuous Integration
+
+* fix warnings ([#491](https://github.com/rivet-gg/opengb/issues/491)) ([5e4f4ec](https://github.com/rivet-gg/opengb/commit/5e4f4ec0d645f7a580f61300af1727c63615ce13))
+
 ## [1.0.0-rc.1](https://github.com/rivet-gg/opengb/compare/v0.1.5...v1.0.0-rc.1) (2024-08-07)
 
 
